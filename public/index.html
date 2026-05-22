@@ -232,33 +232,33 @@ tr:last-child td{border-bottom:none}
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-section">Main</div>
-  <div class="nav-item active" onclick="show('dashboard',this)">
+  <div class="nav-item active" onclick="showPage(event,'dashboard')">
     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
   </div>
-  <div class="nav-item" onclick="show('offers',this)">
+  <div class="nav-item" onclick="showPage(event,'offers')">
     <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
     Dynamic Offers
     <span class="nav-badge" id="offer-count">0</span>
   </div>
-  <div class="nav-item" onclick="show('abtests',this)">
+  <div class="nav-item" onclick="showPage(event,'abtests')">
     <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
     A/B Tests
   </div>
-  <div class="nav-item" onclick="show('analytics',this)">
+  <div class="nav-item" onclick="showPage(event,'analytics')">
     <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     Analytics
   </div>
-  <div class="nav-item" onclick="show('whatsapp',this)">
+  <div class="nav-item" onclick="showPage(event,'whatsapp')">
     <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
     WhatsApp
   </div>
-  <div class="nav-item" onclick="show('customers',this)">
+  <div class="nav-item" onclick="showPage(event,'customers')">
     <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
     Customer Insights
   </div>
   <div class="sidebar-section">Config</div>
-  <div class="nav-item" onclick="show('settings',this)">
+  <div class="nav-item" onclick="showPage(event,'settings')">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
     Settings
   </div>
@@ -567,7 +567,7 @@ tr:last-child td{border-bottom:none}
           <div class="wa-stat">Converted: <span>0%</span></div>
         </div>
       </div>
-      <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+      <button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
     </div>
 
     <div class="wa-message-card">
@@ -580,7 +580,7 @@ tr:last-child td{border-bottom:none}
           <div class="wa-stat">Converted: <span>0%</span></div>
         </div>
       </div>
-      <button class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+      <button class="toggle" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
     </div>
 
     <div class="wa-message-card">
@@ -593,7 +593,7 @@ tr:last-child td{border-bottom:none}
           <div class="wa-stat">Converted: <span>0%</span></div>
         </div>
       </div>
-      <button class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+      <button class="toggle" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
     </div>
   </div>
 
@@ -673,19 +673,19 @@ tr:last-child td{border-bottom:none}
         <div style="display:flex;flex-direction:column;gap:0">
           <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)">
             <div><div style="font-size:13px;font-weight:500;color:var(--text)">Show product image</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Display product photo in popup</div></div>
-            <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+            <button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)">
             <div><div style="font-size:13px;font-weight:500;color:var(--text)">Countdown timer</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Creates urgency — "Offer expires in 5:00"</div></div>
-            <button class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+            <button class="toggle" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)">
             <div><div style="font-size:13px;font-weight:500;color:var(--text)">COD mode</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Optimised layout for cash on delivery</div></div>
-            <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+            <button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
             <div><div style="font-size:13px;font-weight:500;color:var(--text)">Show savings amount</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Show "You save ₹X" in the popup</div></div>
-            <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+            <button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
           </div>
         </div>
       </div>
@@ -749,7 +749,14 @@ function show(name, el) {
 }
 
 // ── TOGGLE ──
-function toggleSwitch(el){el.classList.toggle('on')}
+function showPage(event, name) {
+  var el = event ? event.currentTarget : null;
+  show(name, el);
+}
+function toggleSwitch(event){
+  var el = event ? event.currentTarget : event;
+  if(el && el.classList) el.classList.toggle('on');
+}
 
 // ── TOAST ──
 function showToast(msg,type) {
@@ -762,7 +769,7 @@ function showToast(msg,type) {
 // ── GREETING ──
 function setGreeting(){
   const h=new Date().getHours();
-  const g=h<12?'Good morning':'h<17?'Good afternoon':'Good evening';
+  const g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
   document.getElementById('dash-greeting').textContent=g+' — here\'s your upsell performance';
 }
 
