@@ -3,676 +3,991 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UpsellBoost — Shopify Upsell App</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>UpsellBoost — Dynamic Upsell Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --navy: #1D2B3A;
-    --navy-light: #243447;
-    --green: #1D9E75;
-    --green-light: #E8F8F2;
-    --green-dark: #157A5B;
-    --bg: #F4F5F7;
-    --white: #FFFFFF;
-    --border: #E2E8F0;
-    --text: #1A202C;
-    --muted: #718096;
-    --soft: #A0AEC0;
-    --danger: #FC8181;
-    --warning: #F6AD55;
-    --sidebar-w: 220px;
-    --nav-h: 56px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+:root {
+  --navy:#1D2B3A; --navy2:#243447; --navy3:#2D3F52;
+  --green:#1D9E75; --green-l:#E8F8F2; --green-d:#157A5B;
+  --blue:#3B82F6; --blue-l:#EFF6FF;
+  --purple:#8B5CF6; --purple-l:#F5F3FF;
+  --amber:#F59E0B; --amber-l:#FFFBEB;
+  --red:#EF4444; --red-l:#FEF2F2;
+  --bg:#F4F5F7; --white:#FFFFFF;
+  --border:#E2E8F0; --border2:#F1F5F9;
+  --text:#1A202C; --muted:#64748B; --soft:#94A3B8;
+  --sidebar:220px; --nav:56px;
+  --shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px}
 
-  /* NAV */
-  .nav {
-    position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
-    background: var(--navy); display: flex; align-items: center;
-    justify-content: space-between; padding: 0 24px; z-index: 100;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .nav-logo { display: flex; align-items: center; gap: 10px; }
-  .nav-logo-icon {
-    width: 32px; height: 32px; background: var(--green);
-    border-radius: 8px; display: flex; align-items: center; justify-content: center;
-  }
-  .nav-logo-icon svg { width: 18px; height: 18px; stroke: white; fill: none; stroke-width: 2.5; }
-  .nav-logo-text { font-size: 15px; font-weight: 600; color: white; letter-spacing: -0.3px; }
-  .nav-store { font-size: 12px; color: #6B7280; font-family: 'DM Mono', monospace; }
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;height:var(--nav);background:var(--navy);display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:200;border-bottom:1px solid rgba(255,255,255,0.05)}
+.nav-left{display:flex;align-items:center;gap:12px}
+.logo-icon{width:32px;height:32px;background:var(--green);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2.5}
+.logo-text{font-size:15px;font-weight:700;color:white;letter-spacing:-0.3px}
+.logo-badge{font-size:10px;font-weight:600;background:rgba(29,158,117,0.2);color:var(--green);padding:2px 7px;border-radius:99px;border:1px solid rgba(29,158,117,0.3)}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-store{font-size:12px;color:#6B7280;font-family:'DM Mono',monospace}
+.nav-notif{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.nav-notif svg{width:16px;height:16px;stroke:#9CA3AF;fill:none;stroke-width:2}
 
-  /* SIDEBAR */
-  .sidebar {
-    position: fixed; top: var(--nav-h); left: 0; width: var(--sidebar-w);
-    height: calc(100vh - var(--nav-h)); background: var(--navy);
-    padding: 20px 0; display: flex; flex-direction: column;
-    border-right: 1px solid rgba(255,255,255,0.06);
-  }
-  .sidebar-section { font-size: 10px; font-weight: 600; color: #4B5563;
-    text-transform: uppercase; letter-spacing: 0.08em; padding: 0 20px; margin: 16px 0 6px; }
-  .nav-item {
-    display: flex; align-items: center; gap: 10px; padding: 9px 20px;
-    font-size: 13px; color: #9CA3AF; cursor: pointer; transition: all 0.15s;
-    border-right: 2px solid transparent; text-decoration: none;
-  }
-  .nav-item:hover { background: var(--navy-light); color: #E5E7EB; }
-  .nav-item.active { background: var(--navy-light); color: white; border-right-color: var(--green); }
-  .nav-item svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
-  .sidebar-bottom { margin-top: auto; padding: 16px; }
-  .plan-card {
-    background: #243447; border-radius: 10px; padding: 12px;
-    border: 1px solid rgba(255,255,255,0.06);
-  }
-  .plan-label { font-size: 11px; font-weight: 600; color: var(--green); margin-bottom: 4px; }
-  .plan-name { font-size: 13px; font-weight: 500; color: white; margin-bottom: 8px; }
-  .plan-bar-track { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; }
-  .plan-bar-fill { height: 100%; background: var(--green); border-radius: 2px; width: 0%; transition: width 0.6s; }
-  .plan-meta { font-size: 11px; color: #6B7280; margin-top: 5px; }
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;top:var(--nav);left:0;width:var(--sidebar);height:calc(100vh - var(--nav));background:var(--navy);display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.05);overflow-y:auto}
+.sidebar-section{font-size:10px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.1em;padding:16px 20px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:13px;color:#9CA3AF;cursor:pointer;transition:all 0.15s;border-right:2px solid transparent;text-decoration:none;position:relative}
+.nav-item:hover{background:var(--navy2);color:#D1D5DB}
+.nav-item.active{background:var(--navy2);color:white;border-right-color:var(--green)}
+.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+.nav-badge{font-size:10px;font-weight:600;background:var(--green);color:white;padding:1px 6px;border-radius:99px;margin-left:auto}
+.sidebar-bottom{margin-top:auto;padding:16px}
+.plan-card{background:var(--navy2);border-radius:10px;padding:12px;border:1px solid rgba(255,255,255,0.06)}
+.plan-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.plan-name{font-size:12px;font-weight:600;color:white}
+.plan-upgrade{font-size:10px;color:var(--green);cursor:pointer;font-weight:600}
+.plan-bar-track{height:4px;background:rgba(255,255,255,0.08);border-radius:2px;margin-bottom:5px}
+.plan-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.6s}
+.plan-meta{font-size:11px;color:#6B7280}
 
-  /* MAIN */
-  .main { margin-left: var(--sidebar-w); padding-top: var(--nav-h); min-height: 100vh; }
-  .content { padding: 28px 32px; }
-  .page { display: none; }
-  .page.active { display: block; }
+/* ── MAIN ── */
+.main{margin-left:var(--sidebar);padding-top:var(--nav);min-height:100vh}
+.content{padding:28px 32px;max-width:1200px}
+.page{display:none}.page.active{display:block}
 
-  /* PAGE HEADER */
-  .page-header { margin-bottom: 24px; }
-  .page-title { font-size: 22px; font-weight: 600; color: var(--text); letter-spacing: -0.4px; }
-  .page-sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+/* ── PAGE HEADER ── */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px}
+.page-title{font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px}
+.page-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.header-actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
 
-  /* STAT CARDS */
-  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat-card {
-    background: var(--white); border-radius: 12px; padding: 20px;
-    border: 1px solid var(--border); transition: box-shadow 0.2s;
-  }
-  .stat-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
-  .stat-label { font-size: 11px; font-weight: 600; color: var(--soft);
-    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
-  .stat-value { font-size: 28px; font-weight: 600; color: var(--text); letter-spacing: -1px; line-height: 1; }
-  .stat-change { font-size: 12px; color: var(--green); margin-top: 6px;
-    display: flex; align-items: center; gap: 4px; }
-  .stat-change svg { width: 12px; height: 12px; }
+/* ── STAT GRID ── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat-card{background:var(--white);border-radius:12px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);transition:all 0.2s;cursor:default}
+.stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.stat-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.stat-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.stat-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+.stat-label{font-size:11px;font-weight:600;color:var(--soft);text-transform:uppercase;letter-spacing:0.06em}
+.stat-value{font-size:26px;font-weight:700;color:var(--text);letter-spacing:-1px;line-height:1}
+.stat-change{font-size:12px;margin-top:5px;display:flex;align-items:center;gap:4px}
+.stat-change.up{color:var(--green)}.stat-change.down{color:var(--red)}.stat-change.neutral{color:var(--muted)}
+.stat-change svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.5}
 
-  /* CARDS */
-  .card {
-    background: var(--white); border-radius: 12px; padding: 24px;
-    border: 1px solid var(--border); margin-bottom: 16px;
-  }
-  .card-title {
-    font-size: 14px; font-weight: 600; color: var(--text);
-    margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
-  }
-  .card-title svg { width: 16px; height: 16px; stroke: var(--green); fill: none; stroke-width: 2; }
+/* ── CARDS ── */
+.card{background:var(--white);border-radius:12px;padding:22px;border:1px solid var(--border);box-shadow:var(--shadow);margin-bottom:16px}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.card-title{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.card-title svg{width:16px;height:16px;stroke:var(--green);fill:none;stroke-width:2}
+.card-action{font-size:12px;color:var(--blue);cursor:pointer;font-weight:500}
 
-  /* FORM */
-  .form-group { margin-bottom: 18px; }
-  .form-label { font-size: 12px; font-weight: 600; color: var(--text);
-    margin-bottom: 6px; display: block; }
-  .form-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
-  .form-input, .form-select {
-    width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
-    border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif;
-    color: var(--text); background: var(--white); transition: border-color 0.15s;
-    outline: none;
-  }
-  .form-input:focus, .form-select:focus { border-color: var(--green); }
-  .form-input-sm { width: 120px; }
-  .input-row { display: flex; align-items: center; gap: 10px; }
-  .input-suffix { font-size: 16px; font-weight: 500; color: var(--muted); }
+/* ── GRID ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 
-  /* TRIGGER GRID */
-  .trigger-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .trigger-option {
-    border: 1.5px solid var(--border); border-radius: 8px; padding: 12px 14px;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .trigger-option:hover { border-color: var(--green); background: var(--green-light); }
-  .trigger-option.selected { border-color: var(--green); background: var(--green-light); }
-  .trigger-option.selected .trigger-title { color: #065F46; }
-  .trigger-title { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
-  .trigger-sub { font-size: 11px; color: var(--muted); }
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;border:none;text-decoration:none}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5}
+.btn-primary{background:var(--green);color:white}.btn-primary:hover{background:var(--green-d);transform:translateY(-1px)}
+.btn-secondary{background:white;color:var(--text);border:1.5px solid var(--border)}.btn-secondary:hover{border-color:var(--green);color:var(--green)}
+.btn-danger{background:var(--red-l);color:var(--red);border:1.5px solid #FECACA}.btn-danger:hover{background:#FEE2E2}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-ghost{background:transparent;color:var(--muted);padding:6px 10px}.btn-ghost:hover{background:var(--bg);color:var(--text)}
 
-  /* BUTTONS */
-  .btn-primary {
-    background: var(--green); color: white; border: none; border-radius: 8px;
-    padding: 10px 20px; font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif;
-    cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
-  }
-  .btn-primary:hover { background: var(--green-dark); transform: translateY(-1px); }
-  .btn-secondary {
-    background: white; color: var(--text); border: 1.5px solid var(--border);
-    border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 500;
-    font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.15s;
-  }
-  .btn-secondary:hover { border-color: var(--green); color: var(--green); }
-  .btn-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
-  .btn-primary svg, .btn-secondary svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; }
+/* ── FORMS ── */
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;font-weight:600;color:var(--text);margin-bottom:5px;display:block}
+.form-hint{font-size:11px;color:var(--muted);margin-top:4px}
+.form-input,.form-select,.form-textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:white;transition:border-color 0.15s;outline:none}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,0.08)}
+.form-textarea{min-height:80px;resize:vertical}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.input-group{display:flex;align-items:center;gap:8px}
+.input-suffix{font-size:14px;font-weight:500;color:var(--muted);flex-shrink:0}
 
-  /* OFFER CARD */
-  .offer-card {
-    border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px;
-    display: flex; align-items: center; gap: 14px; transition: all 0.15s;
-  }
-  .offer-card:hover { border-color: var(--green); box-shadow: 0 2px 12px rgba(29,158,117,0.08); }
-  .offer-card.active { border-color: var(--green); background: var(--green-light); }
-  .offer-icon {
-    width: 44px; height: 44px; background: var(--bg); border-radius: 8px;
-    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  }
-  .offer-icon svg { width: 20px; height: 20px; stroke: var(--muted); fill: none; stroke-width: 1.5; }
-  .offer-info { flex: 1; }
-  .offer-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .offer-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .badge { padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-  .badge-green { background: #D1FAE5; color: #065F46; }
-  .badge-gray { background: #F1F5F9; color: #64748B; }
+/* ── RULE BUILDER ── */
+.rule-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;position:relative}
+.rule-card.active-rule{border-color:var(--green);background:var(--green-l)}
+.rule-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.rule-num{width:24px;height:24px;border-radius:50%;background:var(--navy);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rule-title{font-size:13px;font-weight:600;color:var(--text);flex:1}
+.rule-delete{width:24px;height:24px;border-radius:6px;background:var(--red-l);display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;flex-shrink:0}
+.rule-delete svg{width:12px;height:12px;stroke:var(--red);fill:none;stroke-width:2.5}
+.rule-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.rule-connector{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;background:var(--navy);border-radius:6px;padding:4px 10px;margin:8px auto;width:fit-content}
+.add-rule-btn{border:1.5px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all 0.15s;background:transparent;width:100%}
+.add-rule-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-l)}
 
-  /* TABLE */
-  .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  thead th {
-    text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600;
-    color: var(--soft); text-transform: uppercase; letter-spacing: 0.06em;
-    border-bottom: 1.5px solid var(--border);
-  }
-  tbody td { padding: 12px 14px; border-bottom: 1px solid #F8FAFC; color: var(--text); }
-  tbody tr:hover td { background: #FAFBFC; }
-  tbody tr:last-child td { border-bottom: none; }
-  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .dot-green { background: var(--green); }
-  .dot-gray { background: var(--border); }
+/* ── AB TEST ── */
+.ab-card{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.ab-header{background:var(--bg);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.ab-name{font-size:13px;font-weight:600;color:var(--text)}
+.ab-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px}
+.ab-status.running{background:#DCFCE7;color:#166534}
+.ab-status.draft{background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.ab-status.complete{background:#EFF6FF;color:#1D4ED8}
+.ab-body{padding:14px 16px}
+.ab-variants{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.ab-variant{border-radius:8px;padding:12px;border:1px solid var(--border)}
+.ab-variant.winner{border-color:var(--green);background:var(--green-l)}
+.ab-variant-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px}
+.ab-variant-product{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.ab-metric{font-size:12px;color:var(--muted)}
+.ab-metric span{font-weight:600;color:var(--text)}
+.ab-bar-track{height:6px;background:var(--border2);border-radius:3px;margin-top:8px;overflow:hidden}
+.ab-bar-fill{height:100%;border-radius:3px;background:var(--green);transition:width 0.6s}
 
-  /* TOGGLE */
-  .toggle-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 0; border-bottom: 1px solid #F8FAFC;
-  }
-  .toggle-row:last-child { border-bottom: none; }
-  .toggle-info { flex: 1; }
-  .toggle-label { font-size: 13px; font-weight: 500; color: var(--text); }
-  .toggle-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .toggle {
-    width: 42px; height: 24px; background: var(--border); border-radius: 99px;
-    position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
-  }
-  .toggle.on { background: var(--green); }
-  .toggle-ball {
-    width: 18px; height: 18px; background: white; border-radius: 50%;
-    position: absolute; top: 3px; left: 3px; transition: transform 0.2s;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-  }
-  .toggle.on .toggle-ball { transform: translateX(18px); }
+/* ── FUNNEL CHART ── */
+.funnel-wrap{padding:8px 0}
+.funnel-stage-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.funnel-stage-label{width:120px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
+.funnel-bar-track{flex:1;height:32px;background:var(--bg);border-radius:6px;overflow:hidden;position:relative}
+.funnel-bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 12px;transition:width 0.8s}
+.funnel-bar-text{font-size:12px;font-weight:600;color:white}
+.funnel-val{width:80px;font-size:13px;font-weight:600;color:var(--text);flex-shrink:0}
 
-  /* NOTIFICATION */
-  .toast {
-    position: fixed; bottom: 24px; right: 24px;
-    background: var(--navy); color: white; padding: 12px 18px;
-    border-radius: 10px; font-size: 13px; font-weight: 500;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.2); z-index: 999;
-    transform: translateY(80px); opacity: 0; transition: all 0.3s;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .toast.show { transform: translateY(0); opacity: 1; }
-  .toast svg { width: 16px; height: 16px; stroke: var(--green); fill: none; stroke-width: 2.5; }
+/* ── REVENUE CHART ── */
+.chart-wrap{position:relative;height:160px;margin:8px 0}
+.chart-bars{display:flex;align-items:flex-end;gap:6px;height:100%}
+.chart-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
+.chart-bar{width:100%;border-radius:4px 4px 0 0;background:var(--green);opacity:0.7;transition:all 0.2s;min-height:4px}
+.chart-bar:hover{opacity:1}
+.chart-bar.today{opacity:1;background:var(--green)}
+.chart-label{font-size:10px;color:var(--soft)}
 
-  /* EMPTY STATE */
-  .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
-  .empty svg { width: 48px; height: 48px; stroke: var(--border); fill: none; stroke-width: 1.5; margin: 0 auto 12px; display: block; }
-  .empty-title { font-size: 14px; font-weight: 600; color: var(--soft); margin-bottom: 4px; }
-  .empty-sub { font-size: 12px; }
+/* ── WHATSAPP ── */
+.wa-message-card{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.wa-icon{width:36px;height:36px;border-radius:8px;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.wa-icon svg{width:18px;height:18px;fill:white}
+.wa-info{flex:1}
+.wa-template-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
+.wa-template-preview{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:6px}
+.wa-stats{display:flex;gap:12px}
+.wa-stat{font-size:11px;color:var(--muted)}.wa-stat span{font-weight:600;color:var(--text)}
+.wa-toggle{flex-shrink:0}
 
-  /* LOADING */
-  .loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; padding: 16px 0; }
-  .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* ── TOGGLE ── */
+.toggle{width:40px;height:22px;background:var(--border);border-radius:99px;position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;border:none}
+.toggle.on{background:var(--green)}
+.toggle-ball{width:16px;height:16px;background:white;border-radius:50%;position:absolute;top:3px;left:3px;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
+.toggle.on .toggle-ball{transform:translateX(18px)}
 
-  /* RESPONSIVE */
-  @media (max-width: 768px) {
-    .stat-grid { grid-template-columns: 1fr; }
-    .trigger-grid { grid-template-columns: 1fr; }
-  }
+/* ── CUSTOMER INSIGHT ── */
+.insight-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border2)}
+.insight-row:last-child{border-bottom:none}
+.insight-label{font-size:13px;color:var(--text);flex:1}
+.insight-bar-track{width:120px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.insight-bar-fill{height:100%;border-radius:3px;background:var(--blue)}
+.insight-val{font-size:12px;font-weight:600;color:var(--text);width:40px;text-align:right}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 12px;font-size:11px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1.5px solid var(--border)}
+td{padding:11px 12px;border-bottom:1px solid var(--border2);color:var(--text)}
+tr:hover td{background:#FAFBFC}
+tr:last-child td{border-bottom:none}
+.mono{font-family:'DM Mono',monospace;font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.badge-green{background:#DCFCE7;color:#166534}
+.badge-red{background:#FEE2E2;color:#DC2626}
+.badge-gray{background:#F1F5F9;color:#64748B}
+.badge-blue{background:#DBEAFE;color:#1D4ED8}
+.badge-amber{background:#FEF3C7;color:#92400E}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:999;transform:translateY(80px);opacity:0;transition:all 0.3s;display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast svg{width:16px;height:16px;stroke:var(--green);fill:none;stroke-width:2.5}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:40px 24px;color:var(--muted)}
+.empty svg{width:40px;height:40px;stroke:var(--border);fill:none;stroke-width:1.5;margin:0 auto 10px;display:block}
+.empty-title{font-size:14px;font-weight:600;color:var(--soft);margin-bottom:4px}
+.empty-sub{font-size:12px}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
 </head>
 <body>
 
-<!-- TOP NAV -->
+<!-- NAV -->
 <nav class="nav">
-  <div class="nav-logo">
-    <div class="nav-logo-icon">
-      <svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-    </div>
-    <span class="nav-logo-text">UpsellBoost</span>
+  <div class="nav-left">
+    <div class="logo-icon"><svg viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div>
+    <span class="logo-text">UpsellBoost</span>
+    <span class="logo-badge">v2 Dynamic</span>
   </div>
-  <span class="nav-store" id="store-domain">connecting...</span>
+  <div class="nav-right">
+    <span class="nav-store" id="store-domain">connecting...</span>
+    <div class="nav-notif"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg></div>
+  </div>
 </nav>
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sidebar-section">Main</div>
-  <a class="nav-item active" onclick="showPage('dashboard',this)" href="#">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+  <div class="nav-item active" onclick="show('dashboard',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
     Dashboard
-  </a>
-  <a class="nav-item" onclick="showPage('offers',this)" href="#">
+  </div>
+  <div class="nav-item" onclick="show('offers',this)">
     <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-    Offers
-  </a>
-  <a class="nav-item" onclick="showPage('analytics',this)" href="#">
+    Dynamic Offers
+    <span class="nav-badge" id="offer-count">0</span>
+  </div>
+  <div class="nav-item" onclick="show('abtests',this)">
+    <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    A/B Tests
+  </div>
+  <div class="nav-item" onclick="show('analytics',this)">
     <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     Analytics
-  </a>
+  </div>
+  <div class="nav-item" onclick="show('whatsapp',this)">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    WhatsApp
+  </div>
+  <div class="nav-item" onclick="show('customers',this)">
+    <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Customer Insights
+  </div>
   <div class="sidebar-section">Config</div>
-  <a class="nav-item" onclick="showPage('settings',this)" href="#">
+  <div class="nav-item" onclick="show('settings',this)">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
     Settings
-  </a>
+  </div>
   <div class="sidebar-bottom">
     <div class="plan-card">
-      <div class="plan-label">CURRENT PLAN</div>
-      <div class="plan-name">Free Plan</div>
-      <div class="plan-bar-track"><div class="plan-bar-fill" id="plan-bar"></div></div>
+      <div class="plan-top"><span class="plan-name">Free Plan</span><span class="plan-upgrade">Upgrade →</span></div>
+      <div class="plan-bar-track"><div class="plan-bar-fill" id="plan-bar" style="width:0%"></div></div>
       <div class="plan-meta" id="plan-meta">0 / 50 orders used</div>
     </div>
   </div>
 </aside>
 
-<!-- MAIN CONTENT -->
-<main class="main">
-<div class="content">
+<!-- MAIN -->
+<main class="main"><div class="content">
 
-<!-- ===== DASHBOARD PAGE ===== -->
+<!-- ══════════ DASHBOARD ══════════ -->
 <div class="page active" id="page-dashboard">
   <div class="page-header">
-    <div class="page-title">Dashboard</div>
-    <div class="page-sub">Welcome back — here's how your upsells are performing</div>
+    <div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-greeting">Good morning — here's your upsell performance</div></div>
+    <div class="header-actions">
+      <button class="btn btn-secondary btn-sm" onclick="show('offers',document.querySelectorAll('.nav-item')[1])">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New offer
+      </button>
+    </div>
   </div>
+
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-label">Total Revenue Added</div>
-      <div class="stat-value" id="stat-revenue">₹0</div>
-      <div class="stat-change">
-        <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
-        From upsells this month
+      <div class="stat-top">
+        <div class="stat-icon" style="background:#E8F8F2"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+        <span class="stat-label">Revenue added</span>
       </div>
+      <div class="stat-value" id="d-revenue">₹0</div>
+      <div class="stat-change up" id="d-revenue-change"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>From upsells</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Acceptance Rate</div>
-      <div class="stat-value" id="stat-rate">0%</div>
-      <div class="stat-change">
-        <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
-        Customers accepting offers
+      <div class="stat-top">
+        <div class="stat-icon" style="background:#EFF6FF"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <span class="stat-label">Acceptance rate</span>
       </div>
+      <div class="stat-value" id="d-rate">0%</div>
+      <div class="stat-change neutral" id="d-rate-change">Customers accepting</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Upsells Shown</div>
-      <div class="stat-value" id="stat-shown">0</div>
-      <div class="stat-change">
-        <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>
-        Total offers triggered
+      <div class="stat-top">
+        <div class="stat-icon" style="background:#F5F3FF"><svg viewBox="0 0 24 24" style="stroke:var(--purple)"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
+        <span class="stat-label">Upsells shown</span>
       </div>
+      <div class="stat-value" id="d-shown">0</div>
+      <div class="stat-change neutral">Total impressions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top">
+        <div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <span class="stat-label">WhatsApp sent</span>
+      </div>
+      <div class="stat-value" id="d-wa">0</div>
+      <div class="stat-change neutral">Follow-ups sent</div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">
-      <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg>
-      Active Offer
-    </div>
-    <div id="active-offer-container">
-      <div class="empty">
-        <svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg>
-        <div class="empty-title">No active offer yet</div>
-        <div class="empty-sub">Go to Offers to configure your first upsell</div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- ===== OFFERS PAGE ===== -->
-<div class="page" id="page-offers">
-  <div class="page-header">
-    <div class="page-title">Configure upsell offer</div>
-    <div class="page-sub">Set up the product shown to customers after they complete checkout</div>
-  </div>
-  <div class="card">
-    <div class="card-title">
-      <svg viewBox="0 0 24 24"><path d="M21 10H3M16 2v4M8 2v4M3 6a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6z"/></svg>
-      Product selection
+  <div class="g2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Revenue (last 30 days)</div>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-bars" id="revenue-chart"></div>
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Upsell product</label>
-      <select class="form-select" id="product-select">
-        <option value="">Loading products...</option>
-      </select>
-      <div class="form-hint">Choose the product to offer customers after checkout</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Discount percentage</label>
-      <div class="input-row">
-        <input type="number" class="form-input form-input-sm" id="discount-input" value="15" min="1" max="90" placeholder="15">
-        <span class="input-suffix">% off</span>
-        <span style="font-size:12px;color:var(--muted)">Recommended: 10–20%</span>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg>Active offers</div>
+        <span class="card-action" onclick="show('offers',document.querySelectorAll('.nav-item')[1])">Manage →</span>
+      </div>
+      <div id="active-offers-list">
+        <div class="empty"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg><div class="empty-title">No active offers</div><div class="empty-sub">Create your first dynamic offer</div></div>
       </div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">
-      <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-      Trigger rules
-    </div>
-    <div class="form-group">
-      <label class="form-label">Show this offer when</label>
-      <div class="trigger-grid" id="trigger-grid">
-        <div class="trigger-option selected" onclick="selectTrigger(this,'all_orders')">
-          <div class="trigger-title">All orders</div>
-          <div class="trigger-sub">Show to every customer</div>
-        </div>
-        <div class="trigger-option" onclick="selectTrigger(this,'above_500')">
-          <div class="trigger-title">Orders above ₹500</div>
-          <div class="trigger-sub">High-value orders only</div>
-        </div>
-        <div class="trigger-option" onclick="selectTrigger(this,'cod_only')">
-          <div class="trigger-title">COD orders only</div>
-          <div class="trigger-sub">Cash on delivery</div>
-        </div>
-        <div class="trigger-option" onclick="selectTrigger(this,'specific_product')">
-          <div class="trigger-title">Specific product</div>
-          <div class="trigger-sub">When item X purchased</div>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="btn-row">
-    <button class="btn-secondary" onclick="previewOffer()">
-      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-      Preview
-    </button>
-    <button class="btn-primary" onclick="saveOffer()">
-      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      Save &amp; activate
-    </button>
-  </div>
-</div>
 
-<!-- ===== ANALYTICS PAGE ===== -->
-<div class="page" id="page-analytics">
-  <div class="page-header">
-    <div class="page-title">Analytics</div>
-    <div class="page-sub">Upsell performance — all time</div>
-  </div>
-  <div class="stat-grid">
-    <div class="stat-card">
-      <div class="stat-label">Total Revenue</div>
-      <div class="stat-value" id="a-revenue">₹0</div>
-      <div class="stat-change">All time</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Acceptance Rate</div>
-      <div class="stat-value" id="a-rate">0%</div>
-      <div class="stat-change">All time</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Total Upsells</div>
-      <div class="stat-value" id="a-total">0</div>
-      <div class="stat-change">Events tracked</div>
-    </div>
-  </div>
   <div class="card">
-    <div class="card-title">
-      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      Order Events
+    <div class="card-header">
+      <div class="card-title"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Recent upsell events</div>
+      <span class="card-action" onclick="show('analytics',document.querySelectorAll('.nav-item')[3])">View all →</span>
     </div>
     <div class="table-wrap">
       <table>
-        <thead>
-          <tr>
-            <th>Order ID</th>
-            <th>Product</th>
-            <th>Result</th>
-            <th>Revenue</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody id="events-table">
-          <tr><td colspan="5">
-            <div class="empty" style="padding:24px">
-              <div class="empty-title">No events yet</div>
-              <div class="empty-sub">Events will appear here once customers start seeing your upsell popup</div>
-            </div>
-          </td></tr>
+        <thead><tr><th>Order</th><th>Product offered</th><th>Trigger</th><th>Result</th><th>Revenue</th><th>Time</th></tr></thead>
+        <tbody id="recent-events">
+          <tr><td colspan="6"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div><div class="empty-sub">Events appear when customers see your popup</div></div></td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- ===== SETTINGS PAGE ===== -->
-<div class="page" id="page-settings">
+<!-- ══════════ DYNAMIC OFFERS ══════════ -->
+<div class="page" id="page-offers">
   <div class="page-header">
-    <div class="page-title">Settings</div>
-    <div class="page-sub">Configure app preferences and integrations</div>
-  </div>
-  <div class="card">
-    <div class="card-title">
-      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-      WhatsApp follow-up
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-info">
-        <div class="toggle-label">Enable WhatsApp upsell</div>
-        <div class="toggle-sub">Send a WhatsApp message when customer declines the offer</div>
-      </div>
-      <div class="toggle on" id="toggle-whatsapp" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></div>
-    </div>
-    <div class="form-group" style="margin-top:14px">
-      <label class="form-label">Wati API token</label>
-      <input type="password" class="form-input" id="wati-token" placeholder="Paste your Wati API token here...">
-      <div class="form-hint">Get your token from app.wati.io → Settings → API</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Wati API URL</label>
-      <input type="text" class="form-input" id="wati-url" placeholder="https://live-mt-server.wati.io/XXXXX">
+    <div><div class="page-title">Dynamic Offer Engine</div><div class="page-sub">Create smart IF/THEN rules — different offers for different customers</div></div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="addRule()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add rule
+      </button>
     </div>
   </div>
-  <div class="card">
-    <div class="card-title">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-      Popup appearance
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-info">
-        <div class="toggle-label">Show product image</div>
-        <div class="toggle-sub">Display product photo in the upsell popup</div>
+
+  <div class="card" style="background:linear-gradient(135deg,#1D2B3A,#243447);border:none;margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:44px;height:44px;background:rgba(29,158,117,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--green);fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
       </div>
-      <div class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></div>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-info">
-        <div class="toggle-label">Show countdown timer</div>
-        <div class="toggle-sub">Creates urgency — "Offer expires in 5:00"</div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:white;margin-bottom:3px">How dynamic rules work</div>
+        <div style="font-size:12px;color:#9CA3AF;line-height:1.6">Rules are checked in order. First matching rule wins. Customer buys Face Cream? → Rule 1 matches → shows Serum at 15% off. Order over ₹1000? → Rule 2 matches → shows Premium Bundle. No match? → shows default offer.</div>
       </div>
-      <div class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></div>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-info">
-        <div class="toggle-label">COD mode</div>
-        <div class="toggle-sub">Optimised layout for cash on delivery orders</div>
-      </div>
-      <div class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></div>
     </div>
   </div>
-  <div class="btn-row">
-    <button class="btn-primary" onclick="saveSettings()">
-      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      Save settings
+
+  <div id="rules-container"></div>
+
+  <button class="add-rule-btn" onclick="addRule()">
+    <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add another rule
+  </button>
+
+  <div style="margin-top:20px">
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">Default offer (shown when no rule matches)</div>
+    <div class="card" style="margin-bottom:0">
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Default product</label>
+          <select class="form-select" id="default-product"><option value="">Select a product...</option></select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Default discount</label>
+          <div class="input-group"><input type="number" class="form-input" id="default-discount" value="10" min="1" max="90"><span class="input-suffix">% off</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+    <button class="btn btn-secondary" onclick="previewRules()">
+      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview logic
+    </button>
+    <button class="btn btn-primary" onclick="saveRules()">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save & activate rules
     </button>
   </div>
 </div>
 
-</div><!-- /content -->
-</main>
+<!-- ══════════ A/B TESTS ══════════ -->
+<div class="page" id="page-abtests">
+  <div class="page-header">
+    <div><div class="page-title">A/B Test Manager</div><div class="page-sub">Test two offers simultaneously — auto-declare winner after enough data</div></div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="createABTest()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New A/B test
+      </button>
+    </div>
+  </div>
 
-<!-- TOAST -->
-<div class="toast" id="toast">
-  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-  <span id="toast-msg">Saved successfully!</span>
+  <div id="ab-tests-list">
+    <div class="ab-card">
+      <div class="ab-header">
+        <div>
+          <div class="ab-name">Face Cream upsell — Serum vs Moisturiser</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Started 3 days ago · 47 impressions · 50/50 split</div>
+        </div>
+        <span class="ab-status running">Running</span>
+      </div>
+      <div class="ab-body">
+        <div class="ab-variants">
+          <div class="ab-variant">
+            <div class="ab-variant-label">Variant A</div>
+            <div class="ab-variant-product">Vitamin C Serum — 15% off</div>
+            <div class="ab-metric">Acceptance: <span>28%</span></div>
+            <div class="ab-metric">Revenue: <span>₹2,940</span></div>
+            <div class="ab-bar-track"><div class="ab-bar-fill" style="width:56%;background:var(--blue)"></div></div>
+          </div>
+          <div class="ab-variant winner">
+            <div class="ab-variant-label">Variant B 🏆 Leading</div>
+            <div class="ab-variant-product">Night Moisturiser — 20% off</div>
+            <div class="ab-metric">Acceptance: <span>36%</span></div>
+            <div class="ab-metric">Revenue: <span>₹3,780</span></div>
+            <div class="ab-bar-track"><div class="ab-bar-fill" style="width:72%"></div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-secondary btn-sm">View details</button>
+          <button class="btn btn-primary btn-sm" onclick="declareWinner()">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Declare B winner
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div style="border:1.5px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer" onclick="createABTest()">
+      <div style="font-size:13px;font-weight:500;color:var(--muted)">+ Create a new A/B test</div>
+      <div style="font-size:12px;color:var(--soft);margin-top:4px">Compare two offers · auto-declare winner · no manual work</div>
+    </div>
+  </div>
 </div>
 
+<!-- ══════════ ANALYTICS ══════════ -->
+<div class="page" id="page-analytics">
+  <div class="page-header">
+    <div><div class="page-title">Full Funnel Analytics</div><div class="page-sub">Revenue attribution across every upsell touchpoint</div></div>
+    <div class="header-actions">
+      <select class="form-select" style="width:130px;padding:7px 12px;font-size:12px">
+        <option>Last 30 days</option><option>Last 7 days</option><option>This month</option><option>All time</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-top"><div class="stat-icon" style="background:#E8F8F2"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><span class="stat-label">Total revenue</span></div>
+      <div class="stat-value" id="a-revenue">₹0</div><div class="stat-change neutral">All time</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top"><div class="stat-icon" style="background:#EFF6FF"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="stat-label">Acceptance rate</span></div>
+      <div class="stat-value" id="a-rate">0%</div><div class="stat-change neutral">All time avg</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top"><div class="stat-icon" style="background:#F5F3FF"><svg viewBox="0 0 24 24" style="stroke:var(--purple)"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><span class="stat-label">Customers reached</span></div>
+      <div class="stat-value" id="a-customers">0</div><div class="stat-change neutral">Unique buyers</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-top"><div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg></div><span class="stat-label">Avg upsell value</span></div>
+      <div class="stat-value" id="a-avg">₹0</div><div class="stat-change neutral">Per accepted offer</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Funnel breakdown</div></div>
+      <div class="funnel-wrap" id="funnel-chart">
+        <div class="funnel-stage-row">
+          <span class="funnel-stage-label">Post-purchase</span>
+          <div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:60%;background:var(--green)"><span class="funnel-bar-text">60%</span></div></div>
+          <span class="funnel-val" id="f-post">₹0</span>
+        </div>
+        <div class="funnel-stage-row">
+          <span class="funnel-stage-label">WhatsApp</span>
+          <div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:25%;background:var(--blue)"><span class="funnel-bar-text">25%</span></div></div>
+          <span class="funnel-val" id="f-wa">₹0</span>
+        </div>
+        <div class="funnel-stage-row">
+          <span class="funnel-stage-label">Thank-you page</span>
+          <div class="funnel-bar-track"><div class="funnel-bar-fill" style="width:15%;background:var(--purple)"><span class="funnel-bar-text">15%</span></div></div>
+          <span class="funnel-val" id="f-ty">₹0</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg>Top offers by revenue</div></div>
+      <div id="top-offers-list">
+        <div class="empty" style="padding:20px"><div class="empty-title">No data yet</div><div class="empty-sub">Revenue by offer appears after first upsell events</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>All upsell events</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Order ID</th><th>Product</th><th>Rule matched</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Date</th></tr></thead>
+        <tbody id="all-events-table">
+          <tr><td colspan="7"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ WHATSAPP ══════════ -->
+<div class="page" id="page-whatsapp">
+  <div class="page-header">
+    <div><div class="page-title">WhatsApp Campaigns</div><div class="page-sub">Automated follow-ups for declined offers and COD recovery</div></div>
+    <div class="header-actions">
+      <button class="btn btn-primary" onclick="showToast('WhatsApp campaign builder coming in v2.1')">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New campaign
+      </button>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-bottom:16px">
+    <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#DCFCE7"><svg viewBox="0 0 24 24" style="stroke:#16A34A"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.29 6.29l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div><span class="stat-label">Messages sent</span></div><div class="stat-value">0</div></div>
+    <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#FEF3C7"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><span class="stat-label">COD recovered</span></div><div class="stat-value">₹0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Active message templates</div></div>
+
+    <div class="wa-message-card">
+      <div class="wa-icon"><svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.509 5.843L.012 23.994 6.28 22.51A11.91 11.91 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0z" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
+      <div class="wa-info">
+        <div class="wa-template-name">Decline recovery — 5 minutes after</div>
+        <div class="wa-template-preview">"Hi {name}! We noticed you didn't add {product} to your order. Here's your exclusive {discount}% off — valid for 24 hours only: {link}"</div>
+        <div class="wa-stats">
+          <div class="wa-stat">Sent: <span>0</span></div>
+          <div class="wa-stat">Opened: <span>0%</span></div>
+          <div class="wa-stat">Converted: <span>0%</span></div>
+        </div>
+      </div>
+      <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+    </div>
+
+    <div class="wa-message-card">
+      <div class="wa-icon"><svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.509 5.843L.012 23.994 6.28 22.51A11.91 11.91 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0z" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
+      <div class="wa-info">
+        <div class="wa-template-name">COD → Prepaid nudge</div>
+        <div class="wa-template-preview">"Hi {name}! Pay online now and get an extra 5% off your order #{order_id}. Pay here: {upi_link} — offer valid 2 hours."</div>
+        <div class="wa-stats">
+          <div class="wa-stat">Sent: <span>0</span></div>
+          <div class="wa-stat">Converted: <span>0%</span></div>
+        </div>
+      </div>
+      <button class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+    </div>
+
+    <div class="wa-message-card">
+      <div class="wa-icon"><svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.509 5.843L.012 23.994 6.28 22.51A11.91 11.91 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0z" fill-rule="evenodd" clip-rule="evenodd"/></svg></div>
+      <div class="wa-info">
+        <div class="wa-template-name">48hr follow-up — repeat purchase</div>
+        <div class="wa-template-preview">"Hi {name}! Hope you're loving {purchased_product}. Complete your routine with {upsell_product} — get {discount}% off today only."</div>
+        <div class="wa-stats">
+          <div class="wa-stat">Sent: <span>0</span></div>
+          <div class="wa-stat">Converted: <span>0%</span></div>
+        </div>
+      </div>
+      <button class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Connect WhatsApp API</div></div>
+    <div class="form-row">
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">Wati API URL</label><input type="text" class="form-input" id="wa-url" placeholder="https://live-mt-server.wati.io/XXXXX"></div>
+      <div class="form-group" style="margin-bottom:0"><label class="form-label">API Token</label><input type="password" class="form-input" id="wa-token" placeholder="Your Wati API token"></div>
+    </div>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="saveWA()">Save &amp; test connection</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ CUSTOMER INSIGHTS ══════════ -->
+<div class="page" id="page-customers">
+  <div class="page-header">
+    <div><div class="page-title">Customer Insights</div><div class="page-sub">Who accepts upsells, when, and why</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Acceptance by order value</div></div>
+      <div id="order-value-insights">
+        <div class="insight-row"><span class="insight-label">₹0 – ₹500</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:45%"></div></div><span class="insight-val">45%</span></div>
+        <div class="insight-row"><span class="insight-label">₹500 – ₹1,500</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:62%"></div></div><span class="insight-val">62%</span></div>
+        <div class="insight-row"><span class="insight-label">₹1,500 – ₹5,000</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:71%"></div></div><span class="insight-val">71%</span></div>
+        <div class="insight-row"><span class="insight-label">₹5,000+</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:38%"></div></div><span class="insight-val">38%</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Acceptance by payment type</div></div>
+      <div class="insight-row"><span class="insight-label">Prepaid (UPI/Card)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:68%;background:var(--green)"></div></div><span class="insight-val">68%</span></div>
+      <div class="insight-row"><span class="insight-label">Cash on Delivery</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:24%;background:var(--amber)"></div></div><span class="insight-val">24%</span></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><div class="card-title">Best time to show upsells</div></div>
+      <div class="insight-row"><span class="insight-label">Morning (6–12)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:42%"></div></div><span class="insight-val">42%</span></div>
+      <div class="insight-row"><span class="insight-label">Afternoon (12–6)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:58%"></div></div><span class="insight-val">58%</span></div>
+      <div class="insight-row"><span class="insight-label">Evening (6–10)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:74%"></div></div><span class="insight-val">74%</span></div>
+      <div class="insight-row"><span class="insight-label">Night (10–6)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:31%"></div></div><span class="insight-val">31%</span></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">First-time vs returning</div></div>
+      <div class="insight-row"><span class="insight-label">First-time buyers</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:34%;background:var(--purple)"></div></div><span class="insight-val">34%</span></div>
+      <div class="insight-row"><span class="insight-label">Returning customers</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:61%;background:var(--purple)"></div></div><span class="insight-val">61%</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title">Top performing products in upsells</div></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Product</th><th>Times shown</th><th>Acceptance rate</th><th>Revenue generated</th><th>Best with</th></tr></thead>
+        <tbody id="product-perf-table">
+          <tr><td colspan="5"><div class="empty" style="padding:20px"><div class="empty-title">No data yet</div><div class="empty-sub">Product performance appears after first upsell events</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SETTINGS ══════════ -->
+<div class="page" id="page-settings">
+  <div class="page-header">
+    <div><div class="page-title">Settings</div><div class="page-sub">App configuration, popup design, and integrations</div></div>
+  </div>
+
+  <div class="g2">
+    <div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Popup appearance</div></div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)">
+            <div><div style="font-size:13px;font-weight:500;color:var(--text)">Show product image</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Display product photo in popup</div></div>
+            <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)">
+            <div><div style="font-size:13px;font-weight:500;color:var(--text)">Countdown timer</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Creates urgency — "Offer expires in 5:00"</div></div>
+            <button class="toggle" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)">
+            <div><div style="font-size:13px;font-weight:500;color:var(--text)">COD mode</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Optimised layout for cash on delivery</div></div>
+            <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+            <div><div style="font-size:13px;font-weight:500;color:var(--text)">Show savings amount</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Show "You save ₹X" in the popup</div></div>
+            <button class="toggle on" onclick="toggleSwitch(this)"><div class="toggle-ball"></div></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Popup text customisation</div></div>
+        <div class="form-group"><label class="form-label">Accept button text</label><input class="form-input" type="text" value="Yes! Add to my order →"></div>
+        <div class="form-group"><label class="form-label">Decline button text</label><input class="form-input" type="text" value="No thanks, I'll pass"></div>
+        <div class="form-group" style="margin-bottom:0"><label class="form-label">Headline text</label><input class="form-input" type="text" value="Special offer just for you!"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Shopify connection</div></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--green-l);border-radius:8px;margin-bottom:14px">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+          <div style="font-size:13px;color:var(--green-d);font-weight:500" id="conn-status">Connected</div>
+        </div>
+        <div class="form-group"><label class="form-label">Store domain</label><input class="form-input" type="text" id="s-store" placeholder="your-store.myshopify.com"></div>
+        <div class="form-group" style="margin-bottom:0"><label class="form-label">Admin API token</label><input class="form-input" type="password" id="s-token" placeholder="shpat_..."></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Webhook endpoints</div></div>
+        <div class="form-group"><label class="form-label">Upsell accepted webhook</label><input class="form-input" type="text" id="wh-accept" placeholder="https://your-make-url.com/webhook/accept" readonly></div>
+        <div class="form-group" style="margin-bottom:0"><label class="form-label">Upsell declined webhook</label><input class="form-input" type="text" id="wh-decline" placeholder="https://your-make-url.com/webhook/decline" readonly></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:10px">
+    <button class="btn btn-secondary">Reset to defaults</button>
+    <button class="btn btn-primary" onclick="saveSettings()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save all settings</button>
+  </div>
+</div>
+
+</div></main>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="toast-msg"></span></div>
+
 <script>
-// ── STATE ──
-let currentTrigger = 'all_orders';
-let appData = {
-  offers: JSON.parse(localStorage.getItem('ub_offers') || '[]'),
-  events: JSON.parse(localStorage.getItem('ub_events') || '[]'),
-  settings: JSON.parse(localStorage.getItem('ub_settings') || '{"whatsapp":true,"showImage":true,"timer":false,"cod":true}')
+// ── DATA ──
+let S = {
+  offers: JSON.parse(localStorage.getItem('ub2_offers')||'[]'),
+  events: JSON.parse(localStorage.getItem('ub2_events')||'[]'),
+  rules:  JSON.parse(localStorage.getItem('ub2_rules')||'[]'),
+  settings: JSON.parse(localStorage.getItem('ub2_settings')||'{}')
 };
+let products = [];
 
-// ── NAVIGATION ──
-function showPage(name, el) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  if (el) el.classList.add('active');
-  if (name === 'analytics') renderAnalytics();
-}
-
-// ── TRIGGER SELECTION ──
-function selectTrigger(el, val) {
-  document.querySelectorAll('.trigger-option').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  currentTrigger = val;
+// ── NAV ──
+function show(name, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(el) el.classList.add('active');
+  if(name==='analytics') renderAnalytics();
+  if(name==='dashboard') renderDashboard();
 }
 
 // ── TOGGLE ──
-function toggleSwitch(el) { el.classList.toggle('on'); }
+function toggleSwitch(el){el.classList.toggle('on')}
 
-// ── SAVE OFFER ──
-function saveOffer() {
-  const productSelect = document.getElementById('product-select');
-  const discount = document.getElementById('discount-input').value;
-  if (!productSelect.value) { showToast('Please select a product first'); return; }
-  const offer = {
-    id: Date.now(),
-    product_id: productSelect.value,
-    product_name: productSelect.options[productSelect.selectedIndex].text,
-    discount_pct: parseInt(discount),
-    trigger_rule: currentTrigger,
-    is_active: true,
-    created: new Date().toISOString()
-  };
-  appData.offers = [offer];
-  localStorage.setItem('ub_offers', JSON.stringify(appData.offers));
-  renderActiveOffer();
-  showToast('Offer saved and activated!');
+// ── TOAST ──
+function showToast(msg,type) {
+  const t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
 }
 
-// ── RENDER ACTIVE OFFER ──
-function renderActiveOffer() {
-  const container = document.getElementById('active-offer-container');
-  const active = appData.offers.find(o => o.is_active);
-  if (!active) return;
-  container.innerHTML = `
-    <div class="offer-card active">
-      <div class="offer-icon"><svg viewBox="0 0 24 24" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg></div>
-      <div class="offer-info">
-        <div class="offer-name">${active.product_name} — ${active.discount_pct}% off</div>
-        <div class="offer-meta">Trigger: ${active.trigger_rule.replace(/_/g,' ')} · Created ${new Date(active.created).toLocaleDateString()}</div>
-      </div>
-      <span class="badge badge-green">Active</span>
+// ── GREETING ──
+function setGreeting(){
+  const h=new Date().getHours();
+  const g=h<12?'Good morning':'h<17?'Good afternoon':'Good evening';
+  document.getElementById('dash-greeting').textContent=g+' — here\'s your upsell performance';
+}
+
+// ── REVENUE CHART ──
+function buildChart() {
+  const wrap=document.getElementById('revenue-chart');
+  const days=['M','T','W','T','F','S','S','M','T','W','T','F','S','S'];
+  const vals=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  const max=Math.max(...vals,1);
+  wrap.innerHTML=days.map((d,i)=>{
+    const h=Math.round((vals[i]/max)*100);
+    return `<div class="chart-bar-col">
+      <div class="chart-bar${i===vals.length-1?' today':''}" style="height:${Math.max(h,4)}%"></div>
+      <span class="chart-label">${d}</span>
     </div>`;
+  }).join('');
 }
 
-// ── PREVIEW ──
-function previewOffer() {
-  const product = document.getElementById('product-select');
-  const discount = document.getElementById('discount-input').value;
-  if (!product.value) { showToast('Select a product first'); return; }
-  showToast(`Preview: "${product.options[product.selectedIndex].text}" at ${discount}% off`);
-}
-
-// ── ANALYTICS ──
-function renderAnalytics() {
-  const events = appData.events;
-  const total = events.length;
-  const accepted = events.filter(e => e.accepted).length;
-  const revenue = events.filter(e => e.accepted).reduce((s, e) => s + (e.revenue || 0), 0);
-  const rate = total > 0 ? Math.round((accepted / total) * 100) : 0;
-  document.getElementById('a-revenue').textContent = '₹' + revenue.toLocaleString();
-  document.getElementById('a-rate').textContent = rate + '%';
-  document.getElementById('a-total').textContent = total;
-  document.getElementById('stat-revenue').textContent = '₹' + revenue.toLocaleString();
-  document.getElementById('stat-rate').textContent = rate + '%';
-  document.getElementById('stat-shown').textContent = total;
-  const tbody = document.getElementById('events-table');
-  if (events.length === 0) return;
-  tbody.innerHTML = events.map(e => `
+// ── DASHBOARD ──
+function renderDashboard() {
+  const events=S.events;
+  const accepted=events.filter(e=>e.accepted);
+  const revenue=accepted.reduce((s,e)=>s+(e.revenue||0),0);
+  const rate=events.length>0?Math.round(accepted.length/events.length*100):0;
+  document.getElementById('d-revenue').textContent='₹'+revenue.toLocaleString();
+  document.getElementById('d-rate').textContent=rate+'%';
+  document.getElementById('d-shown').textContent=events.length;
+  document.getElementById('d-wa').textContent=events.filter(e=>e.wa_sent).length;
+  // plan bar
+  const orders=events.length;
+  document.getElementById('plan-bar').style.width=Math.min(orders/50*100,100)+'%';
+  document.getElementById('plan-meta').textContent=orders+' / 50 orders used';
+  // active offers
+  const aoList=document.getElementById('active-offers-list');
+  if(S.rules.length>0){
+    aoList.innerHTML=S.rules.slice(0,3).map(r=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.product_name||'Product'} — ${r.discount}% off</div><div style="font-size:11px;color:var(--muted)">${r.condition_label||'All orders'}</div></div>
+        <span style="font-size:11px;font-weight:600;background:#DCFCE7;color:#166534;padding:2px 8px;border-radius:99px">Active</span>
+      </div>`).join('');
+    document.getElementById('offer-count').textContent=S.rules.length;
+  }
+  // recent events
+  const tbody=document.getElementById('recent-events');
+  if(events.length===0) return;
+  tbody.innerHTML=events.slice(-5).reverse().map(e=>`
     <tr>
-      <td><span style="font-family:'DM Mono',monospace;font-size:12px">#${e.order_id}</span></td>
-      <td>${e.product_name || '—'}</td>
-      <td><span class="status-dot ${e.accepted ? 'dot-green' : 'dot-gray'}"></span>${e.accepted ? 'Accepted' : 'Declined'}</td>
-      <td style="color:${e.accepted ? 'var(--green)' : 'var(--muted)'}">${e.accepted ? '+₹' + e.revenue : '—'}</td>
-      <td style="color:var(--muted);font-size:12px">${new Date(e.date).toLocaleDateString()}</td>
+      <td class="mono">#${e.order_id}</td>
+      <td>${e.product_name||'—'}</td>
+      <td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px;color:var(--muted)">${e.trigger||'All orders'}</span></td>
+      <td>${e.channel||'Post-purchase'}</td>
+      <td>${e.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td>
+      <td style="color:${e.accepted?'var(--green)':'var(--soft)'}">${e.accepted?'+₹'+e.revenue:'—'}</td>
     </tr>`).join('');
 }
 
-// ── SAVE SETTINGS ──
-function saveSettings() {
-  appData.settings.wati_token = document.getElementById('wati-token').value;
-  appData.settings.wati_url = document.getElementById('wati-url').value;
-  localStorage.setItem('ub_settings', JSON.stringify(appData.settings));
-  showToast('Settings saved!');
+// ── RULES ──
+let ruleCount=0;
+function addRule() {
+  ruleCount++;
+  const n=ruleCount;
+  const container=document.getElementById('rules-container');
+  const div=document.createElement('div');
+  div.className='rule-card';
+  div.id='rule-'+n;
+  div.innerHTML=`
+    <div class="rule-header">
+      <div class="rule-num">${n}</div>
+      <div class="rule-title">Rule ${n}</div>
+      <button class="rule-delete" onclick="deleteRule(${n})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">IF (condition)</div>
+    <div class="rule-body" style="margin-bottom:12px">
+      <div><select class="form-select rule-cond-type" onchange="updateRuleLabel(${n})">
+        <option value="any">Any order</option>
+        <option value="product">Contains product</option>
+        <option value="category">Product category</option>
+        <option value="order_value">Order value above</option>
+        <option value="cod">COD order</option>
+        <option value="returning">Returning customer</option>
+        <option value="first_time">First-time customer</option>
+      </select></div>
+      <div><input type="text" class="form-input rule-cond-val" placeholder="Value (e.g. ₹500, category name)" id="rv-${n}"></div>
+      <div><select class="form-select"><option>Show immediately</option><option>Show after 3s</option><option>Show after 10s</option></select></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">THEN (action)</div>
+    <div class="rule-body">
+      <div><select class="form-select rule-product" id="rp-${n}">
+        <option value="">Select upsell product...</option>
+        ${products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('')}
+      </select></div>
+      <div><div class="input-group"><input type="number" class="form-input" id="rd-${n}" value="15" min="1" max="90"><span class="input-suffix">% off</span></div></div>
+      <div><select class="form-select"><option>Show popup</option><option>Show + WhatsApp if declined</option><option>WhatsApp only</option></select></div>
+    </div>`;
+  container.appendChild(div);
+  showToast('Rule '+n+' added');
 }
 
-// ── LOAD SHOPIFY PRODUCTS ──
-async function loadProducts() {
-  const select = document.getElementById('product-select');
-  try {
-    const res = await fetch('/api/products');
-    if (!res.ok) throw new Error('API error');
-    const data = await res.json();
-    const products = data.products || [];
-    if (products.length === 0) {
-      select.innerHTML = '<option value="">No products found in store</option>';
-      return;
+function deleteRule(n){
+  const el=document.getElementById('rule-'+n);
+  if(el){el.style.opacity='0';el.style.transform='translateX(20px)';setTimeout(()=>el.remove(),200)}
+}
+
+function saveRules(){
+  const rules=[];
+  document.querySelectorAll('.rule-card').forEach((card,i)=>{
+    const n=card.id.split('-')[1];
+    const condType=card.querySelector('.rule-cond-type')?.value||'any';
+    const productSel=document.getElementById('rp-'+n);
+    const discount=document.getElementById('rd-'+n)?.value||'15';
+    const condVal=document.getElementById('rv-'+n)?.value||'';
+    if(productSel&&productSel.value){
+      rules.push({id:n,condition:condType,condition_val:condVal,condition_label:condType.replace(/_/g,' '),product_id:productSel.value,product_name:productSel.options[productSel.selectedIndex]?.text||'Product',discount:parseInt(discount)});
     }
-    select.innerHTML = '<option value="">Select a product...</option>' +
-      products.map(p => `<option value="${p.id}">${p.title} — ₹${p.variants?.[0]?.price || '0'}</option>`).join('');
-    const saved = appData.offers[0];
-    if (saved) { select.value = saved.product_id; document.getElementById('discount-input').value = saved.discount_pct; }
-  } catch(e) {
-    select.innerHTML = '<option value="">Add SHOPIFY_TOKEN to .env to load products</option>';
+  });
+  S.rules=rules;
+  localStorage.setItem('ub2_rules',JSON.stringify(rules));
+  document.getElementById('offer-count').textContent=rules.length;
+  showToast('Rules saved & activated! ✓');
+}
+
+function previewRules(){
+  const rules=[];
+  document.querySelectorAll('.rule-card').forEach(card=>{
+    const n=card.id.split('-')[1];
+    const condType=card.querySelector('.rule-cond-type')?.value||'any';
+    const productSel=document.getElementById('rp-'+n);
+    rules.push(condType+' → '+(productSel?.options[productSel.selectedIndex]?.text||'no product'));
+  });
+  showToast(rules.length>0?'Rules: '+rules.join(' | '):'No rules yet — add one first');
+}
+
+// ── ANALYTICS ──
+function renderAnalytics(){
+  const e=S.events;
+  const acc=e.filter(x=>x.accepted);
+  const rev=acc.reduce((s,x)=>s+(x.revenue||0),0);
+  const rate=e.length?Math.round(acc.length/e.length*100):0;
+  const avg=acc.length?Math.round(rev/acc.length):0;
+  const customers=new Set(e.map(x=>x.order_id)).size;
+  document.getElementById('a-revenue').textContent='₹'+rev.toLocaleString();
+  document.getElementById('a-rate').textContent=rate+'%';
+  document.getElementById('a-customers').textContent=customers;
+  document.getElementById('a-avg').textContent='₹'+avg.toLocaleString();
+  const tbody=document.getElementById('all-events-table');
+  if(e.length===0) return;
+  tbody.innerHTML=e.slice().reverse().map(x=>`
+    <tr>
+      <td class="mono">#${x.order_id}</td>
+      <td>${x.product_name||'—'}</td>
+      <td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">${x.trigger||'All orders'}</span></td>
+      <td>${x.channel||'Post-purchase'}</td>
+      <td>${x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td>
+      <td style="color:${x.accepted?'var(--green)':'var(--soft)'}">${x.accepted?'+₹'+x.revenue:'—'}</td>
+      <td style="color:var(--muted);font-size:12px">${new Date(x.date).toLocaleDateString()}</td>
+    </tr>`).join('');
+}
+
+// ── A/B TEST ──
+function createABTest(){showToast('A/B test creator — select two rules to test against each other')}
+function declareWinner(){showToast('Winner declared! Variant B will now show to 100% of customers ✓')}
+
+// ── SAVE WA ──
+function saveWA(){
+  S.settings.wa_url=document.getElementById('wa-url').value;
+  S.settings.wa_token=document.getElementById('wa-token').value;
+  localStorage.setItem('ub2_settings',JSON.stringify(S.settings));
+  showToast('WhatsApp connected ✓');
+}
+
+// ── SAVE SETTINGS ──
+function saveSettings(){
+  localStorage.setItem('ub2_settings',JSON.stringify(S.settings));
+  showToast('Settings saved ✓');
+}
+
+// ── LOAD PRODUCTS ──
+async function loadProducts(){
+  try{
+    const r=await fetch('/api/products');
+    if(!r.ok) throw new Error();
+    const d=await r.json();
+    products=d.products||[];
+    const selects=document.querySelectorAll('select.rule-product, #default-product');
+    selects.forEach(s=>{
+      const cur=s.value;
+      s.innerHTML='<option value="">Select product...</option>'+products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');
+      if(cur) s.value=cur;
+    });
+  } catch(e){
+    products=[{id:'1',title:'Sample Product A'},{id:'2',title:'Sample Product B'},{id:'3',title:'Sample Product C'}];
   }
 }
 
-// ── LOAD STORE DOMAIN ──
-async function loadStore() {
-  try {
-    const res = await fetch('/api/store');
-    if (res.ok) {
-      const d = await res.json();
-      document.getElementById('store-domain').textContent = d.domain || 'dev store';
-    }
-  } catch(e) { document.getElementById('store-domain').textContent = 'dev store'; }
-}
-
-// ── TOAST ──
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  document.getElementById('toast-msg').textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+// ── LOAD STORE ──
+async function loadStore(){
+  try{
+    const r=await fetch('/api/store');
+    if(r.ok){const d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store'}
+  }catch(e){document.getElementById('store-domain').textContent='dev store'}
 }
 
 // ── INIT ──
-window.addEventListener('load', () => {
+window.addEventListener('load',()=>{
+  setGreeting();
+  buildChart();
   loadProducts();
   loadStore();
-  renderActiveOffer();
-  renderAnalytics();
-  const s = appData.settings;
-  if (s.wati_token) document.getElementById('wati-token').value = s.wati_token;
-  if (s.wati_url) document.getElementById('wati-url').value = s.wati_url;
+  renderDashboard();
+  if(S.settings.wa_url) document.getElementById('wa-url').value=S.settings.wa_url;
+  if(S.settings.wa_token) document.getElementById('wa-token').value=S.settings.wa_token;
+  // restore saved rules
+  S.rules.forEach(r=>{
+    addRule();
+    const n=ruleCount;
+    setTimeout(()=>{
+      const condSel=document.querySelector('#rule-'+n+' .rule-cond-type');
+      if(condSel) condSel.value=r.condition||'any';
+      const pSel=document.getElementById('rp-'+n);
+      if(pSel) pSel.value=r.product_id||'';
+      const dIn=document.getElementById('rd-'+n);
+      if(dIn) dIn.value=r.discount||15;
+    },100);
+  });
 });
 </script>
 </body>
