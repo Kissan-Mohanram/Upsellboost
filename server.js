@@ -1,13 +1,11 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const db = require('./db');
 const app = express();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Allow Shopify iframe embedding + CORS for extension
 app.use((req, res, next) => {
   res.removeHeader('X-Frame-Options');
   res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://*.myshopify.com https://admin.shopify.com");
@@ -22,10 +20,33 @@ const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN || '';
 const SHOPIFY_STORE = process.env.SHOPIFY_STORE || '';
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const API_VERSION = '2024-01';
+const DATA_FILE = path.join(__dirname, 'data.json');
 
+// ── SIMPLE FILE DATABASE ──
+function readData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  } catch (e) {}
+  return { rules: [], events: [], settings: {}, discount_codes: {} };
+}
+function writeData(data) {
+  try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); } catch (e) {}
+}
 
-// ── DATABASE (Supabase or file fallback — see db.js) ──
-// db.js handles all storage — initialised at startup
+// ── SUPABASE (optional — enhances file storage) ──
+let supabase = null;
+async function initSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) { console.log('No Supabase config — using file storage'); return; }
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    supabase = createClient(url, key);
+    const { error } = await supabase.from('rules').select('id').limit(1);
+    if (error) { console.log('Supabase error:', error.message); supabase = null; return; }
+    console.log('✓ Supabase connected');
+  } catch (e) { console.log('Supabase not available:', e.message); supabase = null; }
+}
 
 function shopifyHeaders() {
   return { 'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type': 'application/json' };
@@ -35,43 +56,6 @@ async function shopifyFetch(endpoint, options = {}) {
   const url = `https://${SHOPIFY_STORE}/admin/api/${API_VERSION}${endpoint}`;
   const res = await fetch(url, { headers: shopifyHeaders(), ...options });
   return res.json();
-}
-
-// ── CREATE SHOPIFY DISCOUNT CODE ──
-async function createDiscountCode(productId, discountPct, ruleName) {
-  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return null;
-  try {
-    const code = `UPSELL${discountPct}OFF${Date.now().toString(36).toUpperCase()}`;
-    const data = await shopifyFetch('/price_rules.json', {
-      method: 'POST',
-      body: JSON.stringify({
-        price_rule: {
-          title: `UpsellBoost - ${ruleName}`,
-          target_type: 'line_item',
-          target_selection: 'entitled',
-          allocation_method: 'across',
-          value_type: 'percentage',
-          value: `-${discountPct}`,
-          customer_selection: 'all',
-          entitled_product_ids: [productId],
-          starts_at: new Date().toISOString(),
-          usage_limit: 1,
-          once_per_customer: true
-        }
-      })
-    });
-
-    if (data.price_rule) {
-      const codeData = await shopifyFetch(`/price_rules/${data.price_rule.id}/discount_codes.json`, {
-        method: 'POST',
-        body: JSON.stringify({ discount_code: { code } })
-      });
-      if (codeData.discount_code) return codeData.discount_code.code;
-    }
-  } catch (e) {
-    console.error('Discount code creation error:', e.message);
-  }
-  return null;
 }
 
 // ── STORE INFO ──
@@ -107,15 +91,21 @@ app.get('/api/orders', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── SMART OFFER MATCHING (called by popup extension) ──
+// ── SMART OFFER MATCHING ──
 app.post('/api/offer', async (req, res) => {
-  const { order_id, order_total, is_cod, line_items, shop_domain } = req.body;
-  const data = readData();
-  const rules = data.rules || [];
+  const { order_id, order_total, is_cod, line_items } = req.body;
+  let rules = [];
+
+  // Try Supabase first, fall back to file
+  if (supabase) {
+    const { data } = await supabase.from('rules').select('*').order('id');
+    rules = data || [];
+  } else {
+    rules = readData().rules || [];
+  }
 
   if (rules.length === 0) return res.json({ offer: null });
 
-  // Find first matching rule
   let matchedRule = null;
   for (const rule of rules) {
     if (!rule.product_id) continue;
@@ -123,165 +113,118 @@ app.post('/api/offer', async (req, res) => {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
       case 'order_value':
-        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule;
-        break;
-      case 'first_time':
-      case 'returning':
-        matchedRule = rule; break;
+        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
       default: matchedRule = rule;
     }
     if (matchedRule) break;
   }
 
-  if (!matchedRule && rules.length > 0) matchedRule = rules.find(r => r.product_id);
+  if (!matchedRule) matchedRule = rules.find(r => r.product_id);
   if (!matchedRule) return res.json({ offer: null });
 
-  // Fetch real product data from Shopify
   let productName = matchedRule.product_name || 'Special offer';
   let variantId = null;
   let originalPrice = '499';
   let imageUrl = null;
-  let description = '';
-  let rawProductId = matchedRule.product_id;
 
   try {
     if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-      const pData = await shopifyFetch(`/products/${rawProductId}.json`);
+      const pData = await shopifyFetch(`/products/${matchedRule.product_id}.json`);
       if (pData.product) {
         productName = pData.product.title;
-        description = pData.product.body_html?.replace(/<[^>]*>/g, '').substring(0, 100) || '';
-        imageUrl = pData.product.image?.src || pData.product.images?.[0]?.src || null;
+        imageUrl = pData.product.image?.src || null;
         const variant = pData.product.variants?.[0];
-        if (variant) {
-          variantId = variant.id.toString();
-          originalPrice = variant.price;
-        }
+        if (variant) { variantId = variant.id.toString(); originalPrice = variant.price; }
       }
     }
   } catch (e) { console.error('Product fetch error:', e.message); }
 
-  // Get or create discount code
-  let discountCode = null;
-  const cacheKey = `${rawProductId}_${matchedRule.discount}`;
-  if (data.discount_codes && data.discount_codes[cacheKey]) {
-    discountCode = data.discount_codes[cacheKey];
-  } else if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-    discountCode = await createDiscountCode(rawProductId, matchedRule.discount || 15, productName);
-    if (discountCode) {
-      if (!data.discount_codes) data.discount_codes = {};
-      data.discount_codes[cacheKey] = discountCode;
-      writeData(data);
-    }
-  }
-
   res.json({
     offer: {
-      product_id: rawProductId,
+      product_id: matchedRule.product_id,
       variant_id: variantId,
       product_name: productName,
-      product_description: description,
       image_url: imageUrl,
       original_price: originalPrice,
       discount_pct: matchedRule.discount || 15,
-      discount_code: discountCode,
+      discount_code: null,
       trigger_rule: matchedRule.condition || 'all_orders'
     }
   });
 });
 
 // ── SAVE RULES ──
-app.post('/api/rules', (req, res) => {
-  const data = readData();
-  data.rules = req.body.rules || [];
-  writeData(data);
-  console.log(`Rules saved: ${data.rules.length} rules`);
-  res.json({ success: true, count: data.rules.length });
-});
-
-app.get('/api/rules', (req, res) => {
-  const data = readData();
-  res.json({ rules: data.rules || [] });
-});
-
-// ── SAVE EVENTS (upsell accepted/declined) ──
-app.post('/api/events', (req, res) => {
-  const data = readData();
-  const event = { ...req.body, id: Date.now(), date: req.body.date || new Date().toISOString() };
-  data.events = data.events || [];
-  data.events.push(event);
-  if (data.events.length > 1000) data.events = data.events.slice(-1000);
-  writeData(data);
-  console.log(`Event: Order ${event.order_id} | ${event.accepted ? 'ACCEPTED ₹' + event.revenue : 'DECLINED'} | ${event.channel}`);
-
-  // Trigger WhatsApp follow-up if declined
-  if (!event.accepted && event.wa_eligible) {
-    triggerWhatsAppFollowup(event, data.settings).catch(e => console.error('WA error:', e));
+app.post('/api/rules', async (req, res) => {
+  const rules = req.body.rules || [];
+  if (supabase) {
+    await supabase.from('rules').delete().eq('shop_domain', 'default');
+    if (rules.length > 0) {
+      await supabase.from('rules').insert(rules.map(r => ({ ...r, shop_domain: 'default' })));
+    }
+  } else {
+    const data = readData();
+    data.rules = rules;
+    writeData(data);
   }
+  console.log(`Rules saved: ${rules.length}`);
+  res.json({ success: true, count: rules.length });
+});
 
+app.get('/api/rules', async (req, res) => {
+  if (supabase) {
+    const { data } = await supabase.from('rules').select('*').order('id');
+    return res.json({ rules: data || [] });
+  }
+  res.json({ rules: readData().rules || [] });
+});
+
+// ── SAVE EVENTS ──
+app.post('/api/events', async (req, res) => {
+  const event = { ...req.body, date: req.body.date || new Date().toISOString() };
+  if (supabase) {
+    await supabase.from('events').insert({ ...event, shop_domain: 'default' });
+  } else {
+    const data = readData();
+    data.events = data.events || [];
+    data.events.push(event);
+    if (data.events.length > 1000) data.events = data.events.slice(-1000);
+    writeData(data);
+  }
+  console.log(`Event: ${event.order_id} | ${event.accepted ? 'ACCEPTED ₹' + event.revenue : 'DECLINED'}`);
   res.json({ success: true });
 });
 
-app.get('/api/events', (req, res) => {
-  const data = readData();
-  res.json({ events: (data.events || []).slice(-200) });
-});
-
-// ── WHATSAPP FOLLOWUP (Day 0 — declined offer) ──
-async function triggerWhatsAppFollowup(event, settings) {
-  if (!settings?.wa_token || !settings?.wa_url || !event.customer_phone) return;
-  const msg = `Hi! We noticed you didn't take up the offer for ${event.product_name}. Here's your exclusive discount — valid for 24 hours only: ${settings.store_url || ''}`;
-  try {
-    await fetch(`${settings.wa_url}/api/v1/sendSessionMessage/${event.customer_phone}`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${settings.wa_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messageText: msg })
-    });
-  } catch (e) {}
-}
-
-// ── WHATSAPP SEQUENCE (Day 2, 7, 14 after delivery) ──
-app.post('/api/whatsapp/sequence', async (req, res) => {
-  const { order_id, customer_phone, customer_name, product_bought, shop_domain } = req.body;
-  const data = readData();
-  const settings = data.settings || {};
-
-  // Store the sequence for scheduled sending
-  const sequence = {
-    order_id,
-    customer_phone,
-    customer_name,
-    product_bought,
-    shop_domain,
-    created_at: new Date().toISOString(),
-    messages_sent: [],
-    status: 'pending'
-  };
-
-  data.wa_sequences = data.wa_sequences || [];
-  data.wa_sequences.push(sequence);
-  writeData(data);
-
-  res.json({ success: true, message: 'WhatsApp sequence scheduled' });
+app.get('/api/events', async (req, res) => {
+  if (supabase) {
+    const { data } = await supabase.from('events').select('*').order('date', { ascending: false }).limit(200);
+    return res.json({ events: data || [] });
+  }
+  res.json({ events: (readData().events || []).slice(-200).reverse() });
 });
 
 // ── SETTINGS ──
-app.post('/api/settings', (req, res) => {
-  const data = readData();
-  data.settings = { ...data.settings, ...req.body };
-  writeData(data);
+app.post('/api/settings', async (req, res) => {
+  if (supabase) {
+    await supabase.from('settings').upsert({ ...req.body, shop_domain: 'default' }, { onConflict: 'shop_domain' });
+  } else {
+    const data = readData();
+    data.settings = { ...data.settings, ...req.body };
+    writeData(data);
+  }
   res.json({ success: true });
 });
 
-app.get('/api/settings', (req, res) => {
-  const data = readData();
-  res.json({ settings: data.settings || {} });
+app.get('/api/settings', async (req, res) => {
+  if (supabase) {
+    const { data } = await supabase.from('settings').select('*').eq('shop_domain', 'default').single();
+    return res.json({ settings: data || {} });
+  }
+  res.json({ settings: readData().settings || {} });
 });
 
-// ── AI ASSISTANT (proxied through server so API key is secure) ──
+// ── AI ASSISTANT ──
 app.post('/api/ai', async (req, res) => {
-  if (!ANTHROPIC_API_KEY) {
-    return res.json({ reply: 'AI not configured. Add ANTHROPIC_API_KEY to Railway environment variables.' });
-  }
+  if (!ANTHROPIC_API_KEY) return res.json({ reply: 'Add ANTHROPIC_API_KEY to Railway variables to enable AI.' });
   try {
     const data = readData();
     const events = data.events || [];
@@ -289,38 +232,21 @@ app.post('/api/ai', async (req, res) => {
     const accepted = events.filter(e => e.accepted).length;
     const rate = events.length > 0 ? Math.round(accepted / events.length * 100) : 0;
     const revenue = events.filter(e => e.accepted).reduce((s, e) => s + (e.revenue || 0), 0);
-
-    const systemPrompt = `You are UpsellBoost AI, an expert upsell consultant for Indian Shopify merchants. Give specific, actionable advice in 2-4 sentences. Use ₹ for currency. Current store stats: Acceptance rate: ${rate}%, Revenue from upsells: ₹${revenue}, Total events: ${events.length}, Active rules: ${rules.length}. Be encouraging and practical.`;
-
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        system: systemPrompt,
+        model: 'claude-sonnet-4-20250514', max_tokens: 300,
+        system: `You are UpsellBoost AI for Indian Shopify merchants. Give 2-4 sentence actionable advice. Stats: rate ${rate}%, revenue ₹${revenue}, events ${events.length}, rules ${rules.length}.`,
         messages: req.body.messages || []
       })
     });
     const d = await r.json();
-    res.json({ reply: d.content?.[0]?.text || 'Sorry, try again.' });
-  } catch (e) {
-    res.status(500).json({ reply: 'Error connecting to AI.' });
-  }
+    res.json({ reply: d.content?.[0]?.text || 'Try again.' });
+  } catch (e) { res.status(500).json({ reply: 'AI error.' }); }
 });
 
-// ── SHOPIFY WEBHOOK: order created → schedule WhatsApp sequence ──
-app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), (req, res) => {
-  try {
-    const order = JSON.parse(req.body);
-    console.log(`New order: #${order.order_number} ₹${order.total_price} ${order.financial_status}`);
-    // Schedule WhatsApp sequence for Day 2, 7, 14
-    // (Will be implemented with proper scheduler in Phase 2)
-  } catch (e) {}
-  res.sendStatus(200);
-});
-
-// ── HEALTH CHECK ──
+// ── HEALTH ──
 app.get('/health', (req, res) => {
   const data = readData();
   res.json({
@@ -328,7 +254,7 @@ app.get('/health', (req, res) => {
     store: SHOPIFY_STORE || 'not configured',
     rules: (data.rules || []).length,
     events: (data.events || []).length,
-    ai: !!ANTHROPIC_API_KEY,
+    supabase: !!supabase,
     version: '2.1.0'
   });
 });
@@ -337,7 +263,6 @@ app.get('/health', (req, res) => {
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
-// Initialise database then start server
-db.initSupabase().then(() => {
+initSupabase().then(() => {
   app.listen(PORT, () => console.log(`UpsellBoost v2.1 running on port ${PORT}`));
 });
