@@ -246,14 +246,50 @@ app.post('/api/ai', async (req, res) => {
   } catch (e) { res.status(500).json({ reply: 'AI error.' }); }
 });
 
+// ── SHOPIFY ORDER WEBHOOK ──
+app.post('/webhooks/orders/create', express.raw({type:'application/json'}), async (req, res) => {
+  res.sendStatus(200);
+  try {
+    const order = JSON.parse(req.body);
+    const event = {
+      order_id: String(order.id),
+      product_name: order.line_items?.[0]?.title || 'Unknown',
+      accepted: true,
+      revenue: parseFloat(order.total_price || 0),
+      channel: 'shopify_order',
+      date: new Date().toISOString()
+    };
+    if (supabase) {
+      await supabase.from('events').insert({...event, shop_domain: 'default'});
+    } else {
+      const data = readData();
+      data.events = data.events || [];
+      data.events.push(event);
+      writeData(data);
+    }
+    console.log('Order webhook:', order.id, order.total_price);
+  } catch(e) { console.error('Webhook error:', e.message); }
+});
+
 // ── HEALTH ──
-app.get('/health', (req, res) => {
-  const data = readData();
+app.get('/health', async (req, res) => {
+  let rulesCount = 0;
+  let eventsCount = 0;
+  if (supabase) {
+    const r = await supabase.from('rules').select('id', {count:'exact'});
+    const e = await supabase.from('events').select('id', {count:'exact'});
+    rulesCount = r.count || 0;
+    eventsCount = e.count || 0;
+  } else {
+    const data = readData();
+    rulesCount = (data.rules||[]).length;
+    eventsCount = (data.events||[]).length;
+  }
   res.json({
     status: 'ok',
     store: SHOPIFY_STORE || 'not configured',
-    rules: (data.rules || []).length,
-    events: (data.events || []).length,
+    rules: rulesCount,
+    events: eventsCount,
     supabase: !!supabase,
     version: '2.1.0'
   });
@@ -266,3 +302,4 @@ const PORT = process.env.PORT || 3000;
 initSupabase().then(() => {
   app.listen(PORT, () => console.log(`UpsellBoost v2.1 running on port ${PORT}`));
 });
+// NOTE: The above is the full server - webhook was missing, adding it here
