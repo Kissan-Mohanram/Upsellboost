@@ -22,7 +22,6 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
 const API_VERSION = '2024-01';
 const DATA_FILE = path.join(__dirname, 'data.json');
 
-// ── SIMPLE FILE DATABASE ──
 function readData() {
   try {
     if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
@@ -33,7 +32,6 @@ function writeData(data) {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); } catch (e) {}
 }
 
-// ── SUPABASE (optional — enhances file storage) ──
 let supabase = null;
 async function initSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -58,7 +56,6 @@ async function shopifyFetch(endpoint, options = {}) {
   return res.json();
 }
 
-// ── STORE INFO ──
 app.get('/api/store', async (req, res) => {
   if (!SHOPIFY_STORE) return res.json({ domain: 'dev-store' });
   try {
@@ -67,7 +64,6 @@ app.get('/api/store', async (req, res) => {
   } catch { res.json({ domain: SHOPIFY_STORE }); }
 });
 
-// ── PRODUCTS ──
 app.get('/api/products', async (req, res) => {
   if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) {
     return res.json({ products: [
@@ -82,7 +78,6 @@ app.get('/api/products', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── ORDERS ──
 app.get('/api/orders', async (req, res) => {
   if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return res.json({ orders: [] });
   try {
@@ -96,7 +91,6 @@ app.post('/api/offer', async (req, res) => {
   const { order_id, order_total, is_cod, line_items } = req.body;
   let rules = [];
 
-  // Try Supabase first, fall back to file
   if (supabase) {
     const { data } = await supabase.from('rules').select('*').order('id');
     rules = data || [];
@@ -110,16 +104,23 @@ app.post('/api/offer', async (req, res) => {
   for (const rule of rules) {
     if (!rule.product_id) continue;
     switch (rule.condition) {
-      case 'any': matchedRule = rule; break;
-      case 'cod': if (is_cod) matchedRule = rule; break;
+      case 'any':
+        matchedRule = rule;
+        break;
+      case 'cod':
+        if (is_cod) matchedRule = rule;
+        break;
       case 'order_value':
-        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
+        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule;
+        break;
       case 'contains_product':
         const cartIds = (line_items || []).map(i => String(i.product_id));
-        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule; break;
+        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule;
+        break;
       case 'product_category':
         const cartTypes = (line_items || []).map(i => (i.product_type || '').toLowerCase());
-        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule; break;
+        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule;
+        break;
       case 'low_stock':
         try {
           if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
@@ -145,7 +146,8 @@ app.post('/api/offer', async (req, res) => {
           }
         } catch {}
         break;
-      default: matchedRule = rule;
+      default:
+        matchedRule = rule;
     }
     if (matchedRule) break;
   }
@@ -184,7 +186,6 @@ app.post('/api/offer', async (req, res) => {
   });
 });
 
-// ── SAVE RULES ──
 app.post('/api/rules', async (req, res) => {
   const rules = req.body.rules || [];
   if (supabase) {
@@ -209,7 +210,6 @@ app.get('/api/rules', async (req, res) => {
   res.json({ rules: readData().rules || [] });
 });
 
-// ── SAVE EVENTS ──
 app.post('/api/events', async (req, res) => {
   const event = { ...req.body, date: req.body.date || new Date().toISOString() };
   if (supabase) {
@@ -233,7 +233,6 @@ app.get('/api/events', async (req, res) => {
   res.json({ events: (readData().events || []).slice(-200).reverse() });
 });
 
-// ── SETTINGS ──
 app.post('/api/settings', async (req, res) => {
   if (supabase) {
     await supabase.from('settings').upsert({ ...req.body, shop_domain: 'default' }, { onConflict: 'shop_domain' });
@@ -253,7 +252,6 @@ app.get('/api/settings', async (req, res) => {
   res.json({ settings: readData().settings || {} });
 });
 
-// ── AI ASSISTANT ──
 app.post('/api/ai', async (req, res) => {
   if (!ANTHROPIC_API_KEY) return res.json({ reply: 'Add ANTHROPIC_API_KEY to Railway variables to enable AI.' });
   try {
@@ -277,7 +275,6 @@ app.post('/api/ai', async (req, res) => {
   } catch (e) { res.status(500).json({ reply: 'AI error.' }); }
 });
 
-// ── SHOPIFY ORDER WEBHOOK ──
 app.post('/webhooks/orders/create', express.raw({type:'application/json'}), async (req, res) => {
   res.sendStatus(200);
   try {
@@ -302,7 +299,6 @@ app.post('/webhooks/orders/create', express.raw({type:'application/json'}), asyn
   } catch(e) { console.error('Webhook error:', e.message); }
 });
 
-// ── HEALTH ──
 app.get('/health', async (req, res) => {
   let rulesCount = 0;
   let eventsCount = 0;
@@ -322,15 +318,13 @@ app.get('/health', async (req, res) => {
     rules: rulesCount,
     events: eventsCount,
     supabase: !!supabase,
-    version: '2.1.0'
+    version: '2.2.0'
   });
 });
 
-// ── SERVE DASHBOARD ──
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3000;
 initSupabase().then(() => {
-  app.listen(PORT, () => console.log(`UpsellBoost v2.1 running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`UpsellBoost v2.2 running on port ${PORT}`));
 });
-// NOTE: The above is the full server - webhook was missing, adding it here
