@@ -114,6 +114,37 @@ app.post('/api/offer', async (req, res) => {
       case 'cod': if (is_cod) matchedRule = rule; break;
       case 'order_value':
         if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
+      case 'contains_product':
+        const cartIds = (line_items || []).map(i => String(i.product_id));
+        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule; break;
+      case 'product_category':
+        const cartTypes = (line_items || []).map(i => (i.product_type || '').toLowerCase());
+        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule; break;
+      case 'low_stock':
+        try {
+          if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
+            const invData = await shopifyFetch(`/products/${rule.product_id}.json`);
+            const qty = invData.product?.variants?.[0]?.inventory_quantity || 0;
+            if (qty <= parseFloat(rule.condition_val || 10)) matchedRule = rule;
+          }
+        } catch {}
+        break;
+      case 'first_time':
+        try {
+          if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
+            const r = await shopifyFetch('/orders.json?status=any&limit=2');
+            if ((r.orders || []).length <= 1) matchedRule = rule;
+          }
+        } catch {}
+        break;
+      case 'returning':
+        try {
+          if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
+            const r = await shopifyFetch('/orders.json?status=any&limit=2');
+            if ((r.orders || []).length > 1) matchedRule = rule;
+          }
+        } catch {}
+        break;
       default: matchedRule = rule;
     }
     if (matchedRule) break;
