@@ -71,30 +71,33 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .card-title svg{width:16px;height:16px;stroke:var(--green);fill:none;stroke-width:2}
 .card-action{font-size:12px;color:var(--blue);cursor:pointer;font-weight:500}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;border:none;text-decoration:none}
 .btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5}
 .btn-primary{background:var(--green);color:white}.btn-primary:hover{background:var(--green-d);transform:translateY(-1px)}
 .btn-secondary{background:white;color:var(--text);border:1.5px solid var(--border)}.btn-secondary:hover{border-color:var(--green);color:var(--green)}
-.btn-danger{background:var(--red-l);color:var(--red);border:1.5px solid #FECACA}.btn-danger:hover{background:#FEE2E2}
 .btn-sm{padding:6px 12px;font-size:12px}
-.btn-ghost{background:transparent;color:var(--muted);padding:6px 10px}.btn-ghost:hover{background:var(--bg);color:var(--text)}
 .form-group{margin-bottom:16px}
 .form-label{font-size:12px;font-weight:600;color:var(--text);margin-bottom:5px;display:block}
-.form-hint{font-size:11px;color:var(--muted);margin-top:4px}
-.form-input,.form-select,.form-textarea{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:white;transition:border-color 0.15s;outline:none}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,0.08)}
-.form-textarea{min-height:80px;resize:vertical}
+.form-input,.form-select{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text);background:white;transition:border-color 0.15s;outline:none}
+.form-input:focus,.form-select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(29,158,117,0.08)}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .input-group{display:flex;align-items:center;gap:8px}
 .input-suffix{font-size:14px;font-weight:500;color:var(--muted);flex-shrink:0}
-.rule-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;position:relative}
+.rule-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;transition:border-color 0.2s}
+.rule-card:hover{border-color:var(--green)}
 .rule-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .rule-num{width:24px;height:24px;border-radius:50%;background:var(--navy);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .rule-title{font-size:13px;font-weight:600;color:var(--text);flex:1}
-.rule-delete{width:24px;height:24px;border-radius:6px;background:var(--red-l);display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;flex-shrink:0}
-.rule-delete svg{width:12px;height:12px;stroke:var(--red);fill:none;stroke-width:2.5}
-.rule-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.rule-actions{display:flex;gap:6px;flex-shrink:0}
+.rule-btn{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;font-size:13px}
+.rule-btn-edit{background:#EFF6FF;color:var(--blue)}
+.rule-btn-dup{background:#F5F3FF;color:var(--purple)}
+.rule-btn-del{background:var(--red-l);color:var(--red)}
+.rule-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.5}
+.rule-fields{display:block}
+.rule-collapsed .rule-fields{display:none}
+.rule-summary{font-size:12px;color:var(--muted);display:none}
+.rule-collapsed .rule-summary{display:block}
 .add-rule-btn{border:1.5px dashed var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all 0.15s;background:transparent;width:100%}
 .add-rule-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-l)}
 .ab-card{border:1.5px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px}
@@ -112,13 +115,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .ab-metric span{font-weight:600;color:var(--text)}
 .ab-bar-track{height:6px;background:var(--border2);border-radius:3px;margin-top:8px;overflow:hidden}
 .ab-bar-fill{height:100%;border-radius:3px;background:var(--green);transition:width 0.6s}
-.funnel-wrap{padding:8px 0}
-.funnel-stage-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
-.funnel-stage-label{width:120px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
-.funnel-bar-track{flex:1;height:32px;background:var(--bg);border-radius:6px;overflow:hidden}
-.funnel-bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 12px;transition:width 0.8s}
-.funnel-bar-text{font-size:12px;font-weight:600;color:white}
-.funnel-val{width:80px;font-size:13px;font-weight:600;color:var(--text);flex-shrink:0}
 .chart-wrap{position:relative;height:160px;margin:8px 0}
 .chart-bars{display:flex;align-items:flex-end;gap:6px;height:100%}
 .chart-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
@@ -126,14 +122,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .chart-bar:hover{opacity:1}
 .chart-bar.today{opacity:1}
 .chart-label{font-size:10px;color:var(--soft)}
-.wa-message-card{border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
-.wa-icon{width:36px;height:36px;border-radius:8px;background:#25D366;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.wa-icon svg{width:18px;height:18px;fill:white}
-.wa-info{flex:1}
-.wa-template-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px}
-.wa-template-preview{font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:6px}
-.wa-stats{display:flex;gap:12px}
-.wa-stat{font-size:11px;color:var(--muted)}.wa-stat span{font-weight:600;color:var(--text)}
 .toggle{width:40px;height:22px;background:var(--border);border-radius:99px;position:relative;cursor:pointer;transition:background 0.2s;flex-shrink:0;border:none}
 .toggle.on{background:var(--green)}
 .toggle-ball{width:16px;height:16px;background:white;border-radius:50%;position:absolute;top:3px;left:3px;transition:transform 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.15)}
@@ -153,10 +141,7 @@ tr:last-child td{border-bottom:none}
 .mono{font-family:'DM Mono',monospace;font-size:12px}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600}
 .badge-green{background:#DCFCE7;color:#166534}
-.badge-red{background:#FEE2E2;color:#DC2626}
 .badge-gray{background:#F1F5F9;color:#64748B}
-.badge-blue{background:#DBEAFE;color:#1D4ED8}
-.badge-amber{background:#FEF3C7;color:#92400E}
 .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:0 8px 30px rgba(0,0,0,0.2);z-index:999;transform:translateY(80px);opacity:0;transition:all 0.3s;display:flex;align-items:center;gap:8px}
 .toast.show{transform:translateY(0);opacity:1}
 .toast svg{width:16px;height:16px;stroke:var(--green);fill:none;stroke-width:2.5}
@@ -223,74 +208,38 @@ tr:last-child td{border-bottom:none}
 <div class="page active" id="page-dashboard">
   <div class="page-header">
     <div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-greeting">Good morning</div></div>
-    <div class="header-actions">
-      <button class="btn btn-secondary btn-sm" onclick="showPage(null,'offers')">
-        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New offer
-      </button>
-    </div>
+    <div class="header-actions"><button class="btn btn-secondary btn-sm" onclick="showPage(null,'offers')"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New offer</button></div>
   </div>
   <div class="stat-grid">
-    <div class="stat-card">
-      <div class="stat-top"><div class="stat-icon" style="background:#E8F8F2"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><span class="stat-label">Revenue added</span></div>
-      <div class="stat-value" id="d-revenue">₹0</div>
-      <div class="stat-change up"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>From upsells</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-top"><div class="stat-icon" style="background:#EFF6FF"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="stat-label">Acceptance rate</span></div>
-      <div class="stat-value" id="d-rate">0%</div>
-      <div class="stat-change neutral">Customers accepting</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-top"><div class="stat-icon" style="background:#F5F3FF"><svg viewBox="0 0 24 24" style="stroke:var(--purple)"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><span class="stat-label">Upsells shown</span></div>
-      <div class="stat-value" id="d-shown">0</div>
-      <div class="stat-change neutral">Total impressions</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-top"><div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><span class="stat-label">WhatsApp sent</span></div>
-      <div class="stat-value" id="d-wa">0</div>
-      <div class="stat-change neutral">Follow-ups sent</div>
-    </div>
+    <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#E8F8F2"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><span class="stat-label">Revenue added</span></div><div class="stat-value" id="d-revenue">₹0</div><div class="stat-change up"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>From upsells</div></div>
+    <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#EFF6FF"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="stat-label">Acceptance rate</span></div><div class="stat-value" id="d-rate">0%</div><div class="stat-change neutral">Customers accepting</div></div>
+    <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#F5F3FF"><svg viewBox="0 0 24 24" style="stroke:var(--purple)"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div><span class="stat-label">Upsells shown</span></div><div class="stat-value" id="d-shown">0</div><div class="stat-change neutral">Total impressions</div></div>
+    <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><span class="stat-label">WhatsApp sent</span></div><div class="stat-value" id="d-wa">0</div><div class="stat-change neutral">Follow-ups sent</div></div>
   </div>
   <div class="g2">
-    <div class="card">
-      <div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Revenue (last 30 days)</div></div>
-      <div class="chart-wrap"><div class="chart-bars" id="revenue-chart"></div></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg>Active offers</div><span class="card-action" onclick="showPage(null,'offers')">Manage →</span></div>
-      <div id="active-offers-list"><div class="empty"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg><div class="empty-title">No active offers</div><div class="empty-sub">Create your first dynamic offer</div></div></div>
-    </div>
+    <div class="card"><div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Revenue (last 30 days)</div></div><div class="chart-wrap"><div class="chart-bars" id="revenue-chart"></div></div></div>
+    <div class="card"><div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg>Active offers</div><span class="card-action" onclick="showPage(null,'offers')">Manage →</span></div><div id="active-offers-list"><div class="empty"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg><div class="empty-title">No active offers</div></div></div></div>
   </div>
   <div class="card">
     <div class="card-header"><div class="card-title"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/></svg>Recent upsell events</div><span class="card-action" onclick="showPage(null,'analytics')">View all →</span></div>
-    <div class="table-wrap">
-      <table><thead><tr><th>Order</th><th>Product offered</th><th>Trigger</th><th>Result</th><th>Revenue</th><th>Time</th></tr></thead>
-      <tbody id="recent-events"><tr><td colspan="6"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div><div class="empty-sub">Events appear when customers see your popup</div></div></td></tr></tbody></table>
-    </div>
+    <div class="table-wrap"><table><thead><tr><th>Order</th><th>Product offered</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Time</th></tr></thead><tbody id="recent-events"><tr><td colspan="6"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr></tbody></table></div>
   </div>
 </div>
 
 <!-- DYNAMIC OFFERS -->
 <div class="page" id="page-offers">
   <div class="page-header">
-    <div><div class="page-title">Dynamic Offer Engine</div><div class="page-sub">Create smart IF/THEN rules — different offers for different customers</div></div>
+    <div><div class="page-title">Dynamic Offer Engine</div><div class="page-sub">Create smart IF/THEN rules with carousel upsells — click any rule to edit</div></div>
     <div class="header-actions"><button class="btn btn-primary" onclick="addRule()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add rule</button></div>
   </div>
   <div class="card" style="background:linear-gradient(135deg,#1D2B3A,#243447);border:none;margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:16px">
-      <div style="width:44px;height:44px;background:rgba(29,158,117,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--green);fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-      </div>
-      <div>
-        <div style="font-size:14px;font-weight:600;color:white;margin-bottom:3px">How dynamic rules work</div>
-        <div style="font-size:12px;color:#9CA3AF;line-height:1.6">Rules are checked in order. First matching rule wins. Customer buys Face Cream? → Rule 1 matches → shows Serum at 15% off. Order over ₹1000? → Rule 2 matches → shows Premium Bundle. No match? → shows default offer.</div>
-      </div>
+      <div style="width:44px;height:44px;background:rgba(29,158,117,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:var(--green);fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>
+      <div><div style="font-size:14px;font-weight:600;color:white;margin-bottom:3px">How dynamic rules work</div><div style="font-size:12px;color:#9CA3AF;line-height:1.6">Rules checked in order. First match wins. Select up to 3 upsell products — shown as a swipeable carousel. Click the edit button on any rule to modify it. Low stock rules auto-show urgency badges.</div></div>
     </div>
   </div>
   <div id="rules-container"></div>
-  <button class="add-rule-btn" onclick="addRule()">
-    <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add another rule
-  </button>
+  <button class="add-rule-btn" onclick="addRule()"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add another rule</button>
   <div style="margin-top:20px">
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">Default offer (shown when no rule matches)</div>
     <div class="card" style="margin-bottom:0">
@@ -301,84 +250,42 @@ tr:last-child td{border-bottom:none}
     </div>
   </div>
   <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
-    <button class="btn btn-secondary" onclick="previewRules()"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview logic</button>
-    <button class="btn btn-primary" onclick="saveRules()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save & activate rules</button>
+    <button class="btn btn-secondary" onclick="previewRules()"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Preview</button>
+    <button class="btn btn-primary" onclick="saveRules()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save & activate</button>
   </div>
 </div>
 
 <!-- A/B TESTS -->
 <div class="page" id="page-abtests">
-  <div class="page-header">
-    <div><div class="page-title">A/B Test Manager</div><div class="page-sub">Test two offers simultaneously</div></div>
-    <div class="header-actions"><button class="btn btn-primary" onclick="createABTest()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New A/B test</button></div>
-  </div>
-  <div class="ab-card">
-    <div class="ab-header"><div><div class="ab-name">Face Cream upsell — Serum vs Moisturiser</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Started 3 days ago · 47 impressions · 50/50 split</div></div><span class="ab-status running">Running</span></div>
-    <div class="ab-body">
-      <div class="ab-variants">
-        <div class="ab-variant"><div class="ab-variant-label">Variant A</div><div class="ab-variant-product">Vitamin C Serum — 15% off</div><div class="ab-metric">Acceptance: <span>28%</span></div><div class="ab-bar-track"><div class="ab-bar-fill" style="width:56%;background:var(--blue)"></div></div></div>
-        <div class="ab-variant winner"><div class="ab-variant-label">Variant B 🏆 Leading</div><div class="ab-variant-product">Night Moisturiser — 20% off</div><div class="ab-metric">Acceptance: <span>36%</span></div><div class="ab-bar-track"><div class="ab-bar-fill" style="width:72%"></div></div></div>
-      </div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn btn-secondary btn-sm">View details</button>
-        <button class="btn btn-primary btn-sm" onclick="declareWinner()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Declare B winner</button>
-      </div>
-    </div>
-  </div>
-  <div style="border:1.5px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer" onclick="createABTest()">
-    <div style="font-size:13px;font-weight:500;color:var(--muted)">+ Create a new A/B test</div>
-  </div>
+  <div class="page-header"><div><div class="page-title">A/B Test Manager</div><div class="page-sub">Test two offers simultaneously</div></div><div class="header-actions"><button class="btn btn-primary" onclick="createABTest()"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New A/B test</button></div></div>
+  <div class="ab-card"><div class="ab-header"><div><div class="ab-name">Face Cream upsell — Serum vs Moisturiser</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Started 3 days ago · 47 impressions</div></div><span class="ab-status running">Running</span></div><div class="ab-body"><div class="ab-variants"><div class="ab-variant"><div class="ab-variant-label">Variant A</div><div class="ab-variant-product">Vitamin C Serum — 15% off</div><div class="ab-metric">Acceptance: <span>28%</span></div><div class="ab-bar-track"><div class="ab-bar-fill" style="width:56%;background:var(--blue)"></div></div></div><div class="ab-variant winner"><div class="ab-variant-label">Variant B 🏆</div><div class="ab-variant-product">Night Moisturiser — 20% off</div><div class="ab-metric">Acceptance: <span>36%</span></div><div class="ab-bar-track"><div class="ab-bar-fill" style="width:72%"></div></div></div></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-primary btn-sm" onclick="declareWinner()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Declare B winner</button></div></div></div>
+  <div style="border:1.5px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer" onclick="createABTest()"><div style="font-size:13px;font-weight:500;color:var(--muted)">+ Create a new A/B test</div></div>
 </div>
 
 <!-- ANALYTICS -->
 <div class="page" id="page-analytics">
-  <div class="page-header">
-    <div><div class="page-title">Full Funnel Analytics</div><div class="page-sub">Revenue attribution across every upsell touchpoint</div></div>
-  </div>
+  <div class="page-header"><div><div class="page-title">Full Funnel Analytics</div><div class="page-sub">Revenue attribution across every upsell touchpoint</div></div></div>
   <div class="stat-grid">
     <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#E8F8F2"><svg viewBox="0 0 24 24" style="stroke:var(--green)"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><span class="stat-label">Total revenue</span></div><div class="stat-value" id="a-revenue">₹0</div><div class="stat-change neutral">All time</div></div>
     <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#EFF6FF"><svg viewBox="0 0 24 24" style="stroke:var(--blue)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><span class="stat-label">Acceptance rate</span></div><div class="stat-value" id="a-rate">0%</div><div class="stat-change neutral">All time avg</div></div>
     <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#F5F3FF"><svg viewBox="0 0 24 24" style="stroke:var(--purple)"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><span class="stat-label">Customers reached</span></div><div class="stat-value" id="a-customers">0</div><div class="stat-change neutral">Unique buyers</div></div>
     <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg></div><span class="stat-label">Avg upsell value</span></div><div class="stat-value" id="a-avg">₹0</div><div class="stat-change neutral">Per accepted offer</div></div>
   </div>
-  <div class="card">
-    <div class="card-header"><div class="card-title">All upsell events</div></div>
-    <div class="table-wrap">
-      <table><thead><tr><th>Order ID</th><th>Product</th><th>Rule matched</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Date</th></tr></thead>
-      <tbody id="all-events-table"><tr><td colspan="7"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr></tbody></table>
-    </div>
-  </div>
+  <div class="card"><div class="card-header"><div class="card-title">All upsell events</div></div><div class="table-wrap"><table><thead><tr><th>Order ID</th><th>Product</th><th>Rule</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Date</th></tr></thead><tbody id="all-events-table"><tr><td colspan="7"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr></tbody></table></div></div>
 </div>
 
 <!-- WHATSAPP -->
 <div class="page" id="page-whatsapp">
   <div class="page-header"><div><div class="page-title">WhatsApp Campaigns</div><div class="page-sub">Automated follow-ups for declined offers</div></div></div>
-  <div class="card">
-    <div class="card-header"><div class="card-title">Connect WhatsApp API</div></div>
-    <div class="form-row">
-      <div class="form-group" style="margin-bottom:0"><label class="form-label">Wati API URL</label><input type="text" class="form-input" id="wa-url" placeholder="https://live-mt-server.wati.io/XXXXX"></div>
-      <div class="form-group" style="margin-bottom:0"><label class="form-label">API Token</label><input type="password" class="form-input" id="wa-token" placeholder="Your Wati API token"></div>
-    </div>
-    <div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="saveWA()">Save & test connection</button></div>
-  </div>
+  <div class="card"><div class="card-header"><div class="card-title">Connect WhatsApp API</div></div><div class="form-row"><div class="form-group" style="margin-bottom:0"><label class="form-label">Wati API URL</label><input type="text" class="form-input" id="wa-url" placeholder="https://live-mt-server.wati.io/XXXXX"></div><div class="form-group" style="margin-bottom:0"><label class="form-label">API Token</label><input type="password" class="form-input" id="wa-token" placeholder="Your Wati API token"></div></div><div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="saveWA()">Save & test connection</button></div></div>
 </div>
 
 <!-- CUSTOMERS -->
 <div class="page" id="page-customers">
   <div class="page-header"><div><div class="page-title">Customer Insights</div><div class="page-sub">Who accepts upsells, when, and why</div></div></div>
   <div class="g2">
-    <div class="card">
-      <div class="card-header"><div class="card-title">Acceptance by order value</div></div>
-      <div class="insight-row"><span class="insight-label">₹0 – ₹500</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:45%"></div></div><span class="insight-val">45%</span></div>
-      <div class="insight-row"><span class="insight-label">₹500 – ₹1,500</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:62%"></div></div><span class="insight-val">62%</span></div>
-      <div class="insight-row"><span class="insight-label">₹1,500 – ₹5,000</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:71%"></div></div><span class="insight-val">71%</span></div>
-      <div class="insight-row"><span class="insight-label">₹5,000+</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:38%"></div></div><span class="insight-val">38%</span></div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Acceptance by payment type</div></div>
-      <div class="insight-row"><span class="insight-label">Prepaid (UPI/Card)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:68%;background:var(--green)"></div></div><span class="insight-val">68%</span></div>
-      <div class="insight-row"><span class="insight-label">Cash on Delivery</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:24%;background:var(--amber)"></div></div><span class="insight-val">24%</span></div>
-    </div>
+    <div class="card"><div class="card-header"><div class="card-title">Acceptance by order value</div></div><div class="insight-row"><span class="insight-label">₹0 – ₹500</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:45%"></div></div><span class="insight-val">45%</span></div><div class="insight-row"><span class="insight-label">₹500 – ₹1,500</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:62%"></div></div><span class="insight-val">62%</span></div><div class="insight-row"><span class="insight-label">₹1,500 – ₹5,000</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:71%"></div></div><span class="insight-val">71%</span></div><div class="insight-row"><span class="insight-label">₹5,000+</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:38%"></div></div><span class="insight-val">38%</span></div></div>
+    <div class="card"><div class="card-header"><div class="card-title">Acceptance by payment type</div></div><div class="insight-row"><span class="insight-label">Prepaid (UPI/Card)</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:68%;background:var(--green)"></div></div><span class="insight-val">68%</span></div><div class="insight-row"><span class="insight-label">Cash on Delivery</span><div class="insight-bar-track"><div class="insight-bar-fill" style="width:24%;background:var(--amber)"></div></div><span class="insight-val">24%</span></div></div>
   </div>
 </div>
 
@@ -387,45 +294,43 @@ tr:last-child td{border-bottom:none}
   <div class="page-header"><div><div class="page-title">Settings</div><div class="page-sub">App configuration and integrations</div></div></div>
   <div class="g2">
     <div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Popup appearance</div></div>
+      <div class="card"><div class="card-header"><div class="card-title">Popup appearance</div></div>
         <div style="display:flex;flex-direction:column;gap:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)"><div><div style="font-size:13px;font-weight:500">Show product image</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Display product photo in popup</div></div><button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)"><div><div style="font-size:13px;font-weight:500">Countdown timer</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Creates urgency</div></div><button class="toggle" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0"><div><div style="font-size:13px;font-weight:500">Show savings amount</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Show "You save ₹X" in popup</div></div><button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)"><div><div style="font-size:13px;font-weight:500">Show product image</div></div><button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2)"><div><div style="font-size:13px;font-weight:500">Show savings amount</div></div><button class="toggle on" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button></div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Popup text</div></div>
-        <div class="form-group"><label class="form-label">Accept button</label><input class="form-input" type="text" value="Yes! Add to my order →"></div>
-        <div class="form-group" style="margin-bottom:0"><label class="form-label">Decline button</label><input class="form-input" type="text" value="No thanks, I'll pass"></div>
-      </div>
+      <div class="card"><div class="card-header"><div class="card-title">Popup text</div></div><div class="form-group"><label class="form-label">Accept button</label><input class="form-input" type="text" value="Yes! Add to my order →"></div><div class="form-group" style="margin-bottom:0"><label class="form-label">Decline button</label><input class="form-input" type="text" value="No thanks, I'll pass"></div></div>
     </div>
     <div>
       <div class="card">
-        <div class="card-header"><div class="card-title">Shopify connection</div></div>
-        <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--green-l);border-radius:8px;margin-bottom:14px"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div><div style="font-size:13px;color:var(--green-d);font-weight:500" id="conn-status">Connected</div></div>
-        <div class="form-group"><label class="form-label">Store domain</label><input class="form-input" type="text" id="s-store" placeholder="your-store.myshopify.com"></div>
-        <div class="form-group" style="margin-bottom:0"><label class="form-label">Admin API token</label><input class="form-input" type="password" id="s-token" placeholder="shpat_..."></div>
+        <div class="card-header"><div class="card-title">🕐 Cart Upsell Timer</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border2);margin-bottom:16px">
+          <div><div style="font-size:13px;font-weight:500">Enable countdown timer</div><div style="font-size:11px;color:var(--muted);margin-top:2px">Shows red urgency timer on cart carousel</div></div>
+          <button class="toggle" id="timer-toggle" onclick="toggleSwitch(event)"><div class="toggle-ball"></div></button>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Timer duration</label>
+          <div class="input-group">
+            <input type="number" class="form-input" id="timer-minutes" value="10" min="1" max="60">
+            <span class="input-suffix">minutes</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">e.g. 10 = shows "Offer expires in 10:00" countdown</div>
+        </div>
       </div>
+      <div class="card"><div class="card-header"><div class="card-title">Shopify connection</div></div><div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--green-l);border-radius:8px;margin-bottom:14px"><div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div><div style="font-size:13px;color:var(--green-d);font-weight:500">Connected</div></div><div class="form-group"><label class="form-label">Store domain</label><input class="form-input" type="text" id="s-store" placeholder="your-store.myshopify.com"></div><div class="form-group" style="margin-bottom:0"><label class="form-label">Admin API token</label><input class="form-input" type="password" id="s-token" placeholder="shpat_..."></div></div>
     </div>
   </div>
-  <div style="display:flex;justify-content:flex-end;gap:10px">
-    <button class="btn btn-primary" onclick="saveSettings()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save all settings</button>
-  </div>
+  <div style="display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="saveSettings()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Save settings</button></div>
 </div>
 
 </div></main>
-
 <div class="toast" id="toast"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="toast-msg"></span></div>
 
 <script>
-let S = {
-  events: [],
-  rules: [],
-  settings: JSON.parse(localStorage.getItem('ub2_settings')||'{}')
-};
+let S = { events:[], rules:[], settings:JSON.parse(localStorage.getItem('ub2_settings')||'{}') };
 let products = [];
+let productsWithVariants = [];
 
 function showPage(event, name) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -436,10 +341,7 @@ function showPage(event, name) {
   if(name==='dashboard') renderDashboard();
 }
 
-function toggleSwitch(event){
-  var el = event ? event.currentTarget : event;
-  if(el && el.classList) el.classList.toggle('on');
-}
+function toggleSwitch(event){ var el=event?event.currentTarget:event; if(el&&el.classList) el.classList.toggle('on'); }
 
 function showToast(msg) {
   const t=document.getElementById('toast');
@@ -450,16 +352,13 @@ function showToast(msg) {
 
 function setGreeting(){
   const h=new Date().getHours();
-  const g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';
-  document.getElementById('dash-greeting').textContent=g+' — here\'s your upsell performance';
+  document.getElementById('dash-greeting').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+' — here\'s your upsell performance';
 }
 
 function buildChart() {
   const wrap=document.getElementById('revenue-chart');
   const days=['M','T','W','T','F','S','S','M','T','W','T','F','S','S'];
-  const vals=[0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-  const max=Math.max(...vals,1);
-  wrap.innerHTML=days.map((d,i)=>`<div class="chart-bar-col"><div class="chart-bar${i===vals.length-1?' today':''}" style="height:${Math.max(Math.round((vals[i]/max)*100),4)}%"></div><span class="chart-label">${d}</span></div>`).join('');
+  wrap.innerHTML=days.map((d,i)=>`<div class="chart-bar-col"><div class="chart-bar${i===days.length-1?' today':''}" style="height:4%"></div><span class="chart-label">${d}</span></div>`).join('');
 }
 
 function renderDashboard() {
@@ -480,189 +379,341 @@ function renderDashboard() {
   }
   const tbody=document.getElementById('recent-events');
   if(events.length===0) return;
-  tbody.innerHTML=events.slice(-5).reverse().map(e=>`<tr><td class="mono">#${e.order_id}</td><td>${e.product_name||'—'}</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px;color:var(--muted)">${e.channel||'post-purchase'}</span></td><td>${e.channel||'Post-purchase'}</td><td>${e.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td><td style="color:${e.accepted?'var(--green)':'var(--soft)'}">${e.accepted?'+₹'+e.revenue:'—'}</td></tr>`).join('');
+  tbody.innerHTML=events.slice(-5).reverse().map(e=>`<tr><td class="mono">#${e.order_id}</td><td>${e.product_name||'—'}</td><td>${e.channel||'post-purchase'}</td><td>${e.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td><td style="color:${e.accepted?'var(--green)':'var(--soft)'}">${e.accepted?'+₹'+e.revenue:'—'}</td><td style="color:var(--muted);font-size:12px">${new Date(e.date).toLocaleDateString()}</td></tr>`).join('');
 }
 
-let ruleCount=0;
+// ── RULE BUILDER ──
+let ruleCount = 0;
+
+function getVariantOptions(productId) {
+  const p = productsWithVariants.find(x => String(x.id) === String(productId));
+  if (!p || !p.variants) return '<option value="">Select variant...</option>';
+  return '<option value="">All variants</option>' + p.variants.map(v =>
+    `<option value="${v.id}">${v.title} (Stock: ${v.inventory_quantity})</option>`
+  ).join('');
+}
+
+function updateConditionUI(n) {
+  const condType = document.getElementById('rc-'+n)?.value || 'any';
+  const variantRow = document.getElementById('variant-row-'+n);
+  const valInput = document.getElementById('rv-'+n);
+  if (condType === 'low_stock') {
+    if (variantRow) variantRow.style.display = 'block';
+    if (valInput) valInput.placeholder = 'Stock threshold (e.g. 5)';
+  } else if (condType === 'order_value') {
+    if (variantRow) variantRow.style.display = 'none';
+    if (valInput) valInput.placeholder = 'Min order value (e.g. 500)';
+  } else if (condType === 'product') {
+    if (variantRow) variantRow.style.display = 'none';
+    if (valInput) valInput.placeholder = 'Product ID';
+  } else if (condType === 'category') {
+    if (variantRow) variantRow.style.display = 'none';
+    if (valInput) valInput.placeholder = 'Category name (e.g. snowboard)';
+  } else {
+    if (variantRow) variantRow.style.display = 'none';
+    if (valInput) valInput.placeholder = 'Value';
+  }
+}
+
+function updateVariantSelector(n) {
+  const productSel = document.getElementById('trigger-product-'+n);
+  const variantSel = document.getElementById('trigger-variant-'+n);
+  if (productSel && variantSel) variantSel.innerHTML = getVariantOptions(productSel.value);
+}
+
+function toggleRule(n) {
+  const card = document.getElementById('rule-'+n);
+  if (card) card.classList.toggle('rule-collapsed');
+}
+
+function duplicateRule(n) {
+  const card = document.getElementById('rule-'+n);
+  if (!card) return;
+  const condSel = document.getElementById('rc-'+n);
+  const p1 = document.getElementById('rp-'+n);
+  const p2 = document.getElementById('rp2-'+n);
+  const p3 = document.getElementById('rp3-'+n);
+  const disc = document.getElementById('rd-'+n);
+  const val = document.getElementById('rv-'+n);
+  addRule();
+  const newN = ruleCount;
+  setTimeout(() => {
+    const nc = document.getElementById('rc-'+newN);
+    if (nc && condSel) { nc.value = condSel.value; updateConditionUI(newN); }
+    const np1 = document.getElementById('rp-'+newN);
+    if (np1 && p1) np1.value = p1.value;
+    const np2 = document.getElementById('rp2-'+newN);
+    if (np2 && p2) np2.value = p2.value;
+    const np3 = document.getElementById('rp3-'+newN);
+    if (np3 && p3) np3.value = p3.value;
+    const nd = document.getElementById('rd-'+newN);
+    if (nd && disc) nd.value = disc.value;
+    const nv = document.getElementById('rv-'+newN);
+    if (nv && val) nv.value = val.value;
+    showToast('Rule duplicated ✓');
+  }, 100);
+}
+
 function addRule() {
   ruleCount++;
-  const n=ruleCount;
-  const container=document.getElementById('rules-container');
-  const div=document.createElement('div');
-  div.className='rule-card';
-  div.id='rule-'+n;
-  div.innerHTML=`
+  const n = ruleCount;
+  const container = document.getElementById('rules-container');
+  const div = document.createElement('div');
+  div.className = 'rule-card';
+  div.id = 'rule-'+n;
+  const productOptions = products.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+  div.innerHTML = `
     <div class="rule-header">
       <div class="rule-num">${n}</div>
       <div class="rule-title">Rule ${n}</div>
-      <button class="rule-delete" onclick="deleteRule(${n})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>
+      <div class="rule-actions">
+        <button class="rule-btn rule-btn-edit" onclick="toggleRule(${n})" title="Collapse/Expand"><svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></button>
+        <button class="rule-btn rule-btn-dup" onclick="duplicateRule(${n})" title="Duplicate rule"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+        <button class="rule-btn rule-btn-del" onclick="deleteRule(${n})" title="Delete rule"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg></button>
+      </div>
     </div>
-    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">IF (condition)</div>
-    <div class="rule-body" style="margin-bottom:12px">
-      <div><select class="form-select rule-cond-type" id="rc-${n}">
-        <option value="any">Any order</option>
-        <option value="product">Contains product</option>
-        <option value="category">Product category</option>
-        <option value="order_value">Order value above</option>
-        <option value="cod">COD order</option>
-        <option value="returning">Returning customer</option>
-        <option value="first_time">First-time customer</option>
-        <option value="low_stock">Low stock product</option>
-      </select></div>
-      <div><input type="text" class="form-input" placeholder="Value (e.g. ₹500, product ID, category)" id="rv-${n}"></div>
-      <div><select class="form-select"><option>Show immediately</option><option>Show after 3s</option><option>Show after 10s</option></select></div>
-    </div>
-    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">THEN (action)</div>
-    <div class="rule-body">
-      <div><select class="form-select rule-product" id="rp-${n}">
-        <option value="">Select upsell product...</option>
-        ${products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('')}
-      </select></div>
-      <div><div class="input-group"><input type="number" class="form-input" id="rd-${n}" value="15" min="1" max="90"><span class="input-suffix">% off</span></div></div>
-      <div><select class="form-select"><option>Show popup</option><option>Show + WhatsApp if declined</option><option>WhatsApp only</option></select></div>
+    <div class="rule-summary">Click expand button to edit this rule</div>
+    <div class="rule-fields">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">IF (condition)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px">
+        <div><select class="form-select" id="rc-${n}" onchange="updateConditionUI(${n})">
+          <option value="any">Any order</option>
+          <option value="product">Contains product</option>
+          <option value="category">Product category</option>
+          <option value="order_value">Order value above</option>
+          <option value="cod">COD order</option>
+          <option value="returning">Returning customer</option>
+          <option value="first_time">First-time customer</option>
+          <option value="low_stock">Low stock + variant in cart</option>
+        </select></div>
+        <div><input type="text" class="form-input" placeholder="Value" id="rv-${n}"></div>
+        <div><select class="form-select"><option>Show immediately</option><option>Show after 3s</option></select></div>
+      </div>
+      <div id="variant-row-${n}" style="display:none;margin-bottom:12px;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A">
+        <div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:8px">VARIANT TRIGGER — Which product+variant triggers this low stock rule?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label class="form-label" style="font-size:11px">Trigger product</label><select class="form-select" id="trigger-product-${n}" onchange="updateVariantSelector(${n})"><option value="">Select product...</option>${productOptions}</select></div>
+          <div><label class="form-label" style="font-size:11px">Specific variant (e.g. S size)</label><select class="form-select" id="trigger-variant-${n}"><option value="">Select product first...</option></select></div>
+        </div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">THEN — Upsell products (up to 3, shown as carousel)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label class="form-label" style="font-size:11px">Product 1 (required)</label><select class="form-select rule-product" id="rp-${n}"><option value="">Select product...</option>${productOptions}</select></div>
+        <div><label class="form-label" style="font-size:11px">Product 2 (optional)</label><select class="form-select" id="rp2-${n}"><option value="">None</option>${productOptions}</select></div>
+        <div><label class="form-label" style="font-size:11px">Product 3 (optional)</label><select class="form-select" id="rp3-${n}"><option value="">None</option>${productOptions}</select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div><label class="form-label" style="font-size:11px">Discount %</label><div class="input-group"><input type="number" class="form-input" id="rd-${n}" value="15" min="1" max="90"><span class="input-suffix">% off</span></div></div>
+        <div><label class="form-label" style="font-size:11px">Display</label><select class="form-select"><option>Show popup + cart</option><option>Cart only</option><option>Popup only</option></select></div>
+      </div>
     </div>`;
   container.appendChild(div);
-  showToast('Rule '+n+' added');
+  showToast('Rule '+n+' added — fill in the fields and save!');
 }
 
-function deleteRule(n){
-  const el=document.getElementById('rule-'+n);
-  if(el){el.style.opacity='0';el.style.transform='translateX(20px)';setTimeout(()=>el.remove(),200);}
+function deleteRule(n) {
+  const el = document.getElementById('rule-'+n);
+  if (el) { el.style.opacity='0'; el.style.transform='translateX(20px)'; setTimeout(()=>el.remove(), 200); }
 }
 
-async function saveRules(){
-  const rules=[];
-  document.querySelectorAll('.rule-card').forEach((card,i)=>{
-    const n=card.id.split('-')[1];
-    const condTypeRaw=document.getElementById('rc-'+n)?.value||'any';
-    const condTypeMap={
-      'any':'any','product':'contains_product','category':'product_category',
-      'order_value':'order_value','cod':'cod','returning':'returning',
-      'first_time':'first_time','low_stock':'low_stock'
-    };
-    const condType=condTypeMap[condTypeRaw]||condTypeRaw;
-    const productSel=document.getElementById('rp-'+n);
-    const discount=document.getElementById('rd-'+n)?.value||'15';
-    const condVal=document.getElementById('rv-'+n)?.value||'';
-    if(productSel&&productSel.value){
+async function saveRules() {
+  const rules = [];
+  document.querySelectorAll('.rule-card').forEach((card, i) => {
+    const n = card.id.split('-')[1];
+    const condTypeRaw = document.getElementById('rc-'+n)?.value || 'any';
+    const condTypeMap = {'any':'any','product':'contains_product','category':'product_category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
+    const condType = condTypeMap[condTypeRaw] || condTypeRaw;
+    const productSel = document.getElementById('rp-'+n);
+    const discount = document.getElementById('rd-'+n)?.value || '15';
+    const condVal = document.getElementById('rv-'+n)?.value || '';
+    if (productSel && productSel.value) {
+      let finalCondVal = condVal || null;
+      if (condType === 'low_stock') {
+        const trigProd = document.getElementById('trigger-product-'+n)?.value || '';
+        const trigVar = document.getElementById('trigger-variant-'+n)?.value || '';
+        const threshold = condVal || '5';
+        finalCondVal = trigProd + ':' + trigVar + ':' + threshold;
+      }
       rules.push({
-        id:String(i+1),
-        condition:condType,
-        condition_val:condVal||null,
-        condition_label:condTypeRaw.replace(/_/g,' '),
-        product_id:productSel.value,
-        product_name:productSel.options[productSel.selectedIndex]?.text||'Product',
-        discount:parseInt(discount)
+        id: String(i+1),
+        condition: condType,
+        condition_val: finalCondVal,
+        condition_label: condTypeRaw.replace(/_/g,' '),
+        product_id: productSel.value,
+        product_id2: document.getElementById('rp2-'+n)?.value || null,
+        product_id3: document.getElementById('rp3-'+n)?.value || null,
+        product_name: productSel.options[productSel.selectedIndex]?.text || 'Product',
+        discount: parseInt(discount)
       });
     }
   });
-  S.rules=rules;
-  localStorage.setItem('ub2_rules',JSON.stringify(rules));
-  document.getElementById('offer-count').textContent=rules.length;
-  try{
-    const r=await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules})});
-    const d=await r.json();
-    if(d.success) showToast('Rules saved & activated! ✓');
+  S.rules = rules;
+  localStorage.setItem('ub2_rules', JSON.stringify(rules));
+  document.getElementById('offer-count').textContent = rules.length;
+  try {
+    const r = await fetch('/api/rules', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({rules})});
+    const d = await r.json();
+    if (d.success) showToast('Rules saved & activated! ✓');
     else showToast('Saved locally — server sync failed');
-  } catch(e){
-    showToast('Saved locally — check connection');
-  }
+  } catch(e) { showToast('Saved locally — check connection'); }
 }
 
-function previewRules(){
-  const rules=[];
-  document.querySelectorAll('.rule-card').forEach(card=>{
-    const n=card.id.split('-')[1];
-    const condType=document.getElementById('rc-'+n)?.value||'any';
-    const productSel=document.getElementById('rp-'+n);
-    rules.push(condType+' → '+(productSel?.options[productSel.selectedIndex]?.text||'no product'));
+function previewRules() {
+  const rules = [];
+  document.querySelectorAll('.rule-card').forEach(card => {
+    const n = card.id.split('-')[1];
+    const condType = document.getElementById('rc-'+n)?.value || 'any';
+    const p1 = document.getElementById('rp-'+n);
+    const p2 = document.getElementById('rp2-'+n);
+    const p3 = document.getElementById('rp3-'+n);
+    const prods = [p1,p2,p3].filter(s=>s&&s.value).map(s=>s.options[s.selectedIndex]?.text).join(', ');
+    rules.push(condType + ' → ' + (prods||'no product'));
   });
-  showToast(rules.length>0?'Rules: '+rules.join(' | '):'No rules yet');
+  showToast(rules.length>0 ? 'Rules: '+rules.join(' | ') : 'No rules yet');
 }
 
-function renderAnalytics(){
-  const e=S.events;
-  const acc=e.filter(x=>x.accepted);
-  const rev=acc.reduce((s,x)=>s+(x.revenue||0),0);
-  const rate=e.length?Math.round(acc.length/e.length*100):0;
-  const avg=acc.length?Math.round(rev/acc.length):0;
-  const customers=new Set(e.map(x=>x.order_id)).size;
-  document.getElementById('a-revenue').textContent='₹'+rev.toLocaleString();
-  document.getElementById('a-rate').textContent=rate+'%';
-  document.getElementById('a-customers').textContent=customers;
-  document.getElementById('a-avg').textContent='₹'+avg.toLocaleString();
-  const tbody=document.getElementById('all-events-table');
-  if(e.length===0) return;
-  tbody.innerHTML=e.slice().reverse().map(x=>`<tr><td class="mono">#${x.order_id}</td><td>${x.product_name||'—'}</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">${x.trigger_rule||'all orders'}</span></td><td>${x.channel||'post-purchase'}</td><td>${x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td><td style="color:${x.accepted?'var(--green)':'var(--soft)'}">${x.accepted?'+₹'+x.revenue:'—'}</td><td style="color:var(--muted);font-size:12px">${new Date(x.date).toLocaleDateString()}</td></tr>`).join('');
+function renderAnalytics() {
+  const e = S.events;
+  const acc = e.filter(x=>x.accepted);
+  const rev = acc.reduce((s,x)=>s+(x.revenue||0), 0);
+  const rate = e.length ? Math.round(acc.length/e.length*100) : 0;
+  const avg = acc.length ? Math.round(rev/acc.length) : 0;
+  document.getElementById('a-revenue').textContent = '₹'+rev.toLocaleString();
+  document.getElementById('a-rate').textContent = rate+'%';
+  document.getElementById('a-customers').textContent = new Set(e.map(x=>x.order_id)).size;
+  document.getElementById('a-avg').textContent = '₹'+avg.toLocaleString();
+  const tbody = document.getElementById('all-events-table');
+  if (e.length===0) return;
+  tbody.innerHTML = e.slice().reverse().map(x=>`<tr><td class="mono">#${x.order_id}</td><td>${x.product_name||'—'}</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">${x.trigger_rule||'all orders'}</span></td><td>${x.channel||'post-purchase'}</td><td>${x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td><td style="color:${x.accepted?'var(--green)':'var(--soft)'}">${x.accepted?'+₹'+x.revenue:'—'}</td><td style="color:var(--muted);font-size:12px">${new Date(x.date).toLocaleDateString()}</td></tr>`).join('');
 }
 
 function createABTest(){showToast('A/B test creator coming soon');}
-function declareWinner(){showToast('Winner declared! Variant B will now show to 100% of customers ✓');}
+function declareWinner(){showToast('Winner declared! Variant B will now show to 100% ✓');}
 function saveWA(){showToast('WhatsApp settings saved ✓');}
-function saveSettings(){localStorage.setItem('ub2_settings',JSON.stringify(S.settings));showToast('Settings saved ✓');}
 
-async function loadProducts(){
-  try{
-    const r=await fetch('/api/products');
-    if(!r.ok) throw new Error();
-    const d=await r.json();
-    products=d.products||[];
+async function saveSettings() {
+  const timerToggle = document.getElementById('timer-toggle');
+  const timerMinutes = document.getElementById('timer-minutes');
+  const settings = {
+    timer_enabled: timerToggle ? timerToggle.classList.contains('on') : false,
+    timer_minutes: timerMinutes ? parseInt(timerMinutes.value) || 10 : 10
+  };
+  S.settings = settings;
+  localStorage.setItem('ub2_settings', JSON.stringify(settings));
+  try {
+    await fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(settings)});
+    showToast('Settings saved ✓');
+  } catch(e) { showToast('Settings saved locally ✓'); }
+}
+
+async function loadProducts() {
+  try {
+    const r = await fetch('/api/products');
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    products = d.products || [];
     document.querySelectorAll('select.rule-product,#default-product').forEach(s=>{
-      const cur=s.value;
-      s.innerHTML='<option value="">Select product...</option>'+products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');
-      if(cur) s.value=cur;
+      const cur = s.value;
+      s.innerHTML = '<option value="">Select product...</option>' + products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');
+      if (cur) s.value = cur;
     });
-  } catch(e){
-    products=[{id:'1',title:'Sample A'},{id:'2',title:'Sample B'},{id:'3',title:'Sample C'}];
+  } catch(e) {
+    products = [{id:'1',title:'Sample A'},{id:'2',title:'Sample B'},{id:'3',title:'Sample C'}];
   }
 }
 
-async function loadStore(){
-  try{
-    const r=await fetch('/api/store');
-    if(r.ok){const d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store';}
-  }catch(e){document.getElementById('store-domain').textContent='dev store';}
+async function loadProductsWithVariants() {
+  try {
+    const r = await fetch('/api/products-with-variants');
+    if (r.ok) { const d = await r.json(); productsWithVariants = d.products || []; }
+  } catch(e) {}
 }
 
-async function loadEvents(){
-  try{
-    const r=await fetch('/api/events');
-    if(r.ok){const d=await r.json();S.events=d.events||[];}
-  }catch(e){}
+async function loadStore() {
+  try {
+    const r = await fetch('/api/store');
+    if (r.ok) { const d = await r.json(); document.getElementById('store-domain').textContent = d.domain || 'dev store'; }
+  } catch(e) { document.getElementById('store-domain').textContent = 'dev store'; }
 }
 
-async function loadRules(){
-  try{
-    const r=await fetch('/api/rules');
-    if(r.ok){
-      const d=await r.json();
-      S.rules=d.rules||[];
-      document.getElementById('offer-count').textContent=S.rules.length;
-      S.rules.forEach(r=>{
+async function loadEvents() {
+  try {
+    const r = await fetch('/api/events');
+    if (r.ok) { const d = await r.json(); S.events = d.events || []; }
+  } catch(e) {}
+}
+
+async function loadSettings() {
+  try {
+    const r = await fetch('/api/settings');
+    if (r.ok) {
+      const d = await r.json();
+      const settings = d.settings || {};
+      S.settings = settings;
+      const timerToggle = document.getElementById('timer-toggle');
+      const timerMinutes = document.getElementById('timer-minutes');
+      if (timerToggle && settings.timer_enabled) timerToggle.classList.add('on');
+      if (timerMinutes && settings.timer_minutes) timerMinutes.value = settings.timer_minutes;
+    }
+  } catch(e) {}
+}
+
+async function loadRules() {
+  try {
+    const r = await fetch('/api/rules');
+    if (r.ok) {
+      const d = await r.json();
+      S.rules = d.rules || [];
+      document.getElementById('offer-count').textContent = S.rules.length;
+      S.rules.forEach(rule => {
         addRule();
-        const n=ruleCount;
-        setTimeout(()=>{
-          const condMap={'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
-          const condSel=document.getElementById('rc-'+n);
-          if(condSel) condSel.value=condMap[r.condition]||'any';
-          const pSel=document.getElementById('rp-'+n);
-          if(pSel) pSel.value=r.product_id||'';
-          const dIn=document.getElementById('rd-'+n);
-          if(dIn) dIn.value=r.discount||15;
-          const vIn=document.getElementById('rv-'+n);
-          if(vIn) vIn.value=r.condition_val||'';
-        },300);
+        const n = ruleCount;
+        setTimeout(() => {
+          const condMap = {'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
+          const condSel = document.getElementById('rc-'+n);
+          if (condSel) { condSel.value = condMap[rule.condition] || 'any'; updateConditionUI(n); }
+          const pSel = document.getElementById('rp-'+n);
+          if (pSel) pSel.value = rule.product_id || '';
+          const p2Sel = document.getElementById('rp2-'+n);
+          if (p2Sel && rule.product_id2) p2Sel.value = rule.product_id2;
+          const p3Sel = document.getElementById('rp3-'+n);
+          if (p3Sel && rule.product_id3) p3Sel.value = rule.product_id3;
+          const dIn = document.getElementById('rd-'+n);
+          if (dIn) dIn.value = rule.discount || 15;
+          if (rule.condition === 'low_stock' && rule.condition_val) {
+            const parts = rule.condition_val.split(':');
+            const trigProd = document.getElementById('trigger-product-'+n);
+            if (trigProd && parts[0]) {
+              trigProd.value = parts[0];
+              updateVariantSelector(n);
+              setTimeout(() => {
+                const trigVar = document.getElementById('trigger-variant-'+n);
+                if (trigVar && parts[1]) trigVar.value = parts[1];
+              }, 300);
+            }
+            const vIn = document.getElementById('rv-'+n);
+            if (vIn && parts[2]) vIn.value = parts[2];
+          } else {
+            const vIn = document.getElementById('rv-'+n);
+            if (vIn) vIn.value = rule.condition_val || '';
+          }
+          // Collapse rule after loading (clean UI)
+          const card = document.getElementById('rule-'+n);
+          if (card) card.classList.add('rule-collapsed');
+        }, 300);
       });
     }
-  }catch(e){}
+  } catch(e) {}
 }
 
-window.addEventListener('load', async ()=>{
+window.addEventListener('load', async () => {
   setGreeting();
   buildChart();
   await loadStore();
   await loadProducts();
+  await loadProductsWithVariants();
   await loadEvents();
+  await loadSettings();
   await loadRules();
   renderDashboard();
 });
