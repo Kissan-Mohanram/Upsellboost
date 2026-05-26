@@ -56,77 +56,45 @@ async function shopifyFetch(endpoint, options = {}) {
   return res.json();
 }
 
-app.get('/api/store', async (req, res) => {
-  if (!SHOPIFY_STORE) return res.json({ domain: 'dev-store' });
-  try {
-    const d = await shopifyFetch('/shop.json');
-    res.json({ domain: d.shop?.domain || SHOPIFY_STORE, name: d.shop?.name });
-  } catch { res.json({ domain: SHOPIFY_STORE }); }
-});
-
-app.get('/api/products', async (req, res) => {
-  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) {
-    return res.json({ products: [
-      { id: '1', title: 'Sample Product A', variants: [{ id: 'v1', price: '499' }], images: [] },
-      { id: '2', title: 'Sample Product B', variants: [{ id: 'v2', price: '999' }], images: [] },
-      { id: '3', title: 'Sample Product C', variants: [{ id: 'v3', price: '299' }], images: [] }
-    ]});
-  }
-  try {
-    const d = await shopifyFetch('/products.json?limit=50&status=active');
-    res.json({ products: d.products || [] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/orders', async (req, res) => {
-  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return res.json({ orders: [] });
-  try {
-    const d = await shopifyFetch('/orders.json?status=any&limit=50');
-    res.json({ orders: d.orders || [] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── SMART OFFER MATCHING ──
-app.post('/api/offer', async (req, res) => {
-  const { order_id, order_total, is_cod, line_items } = req.body;
-  let rules = [];
-
-  if (supabase) {
-    const { data } = await supabase.from('rules').select('*').order('id');
-    rules = data || [];
-  } else {
-    rules = readData().rules || [];
-  }
-
-  if (rules.length === 0) return res.json({ offer: null });
-
+// ── SHARED RULE MATCHING LOGIC ──
+async function matchRule(rules, { order_total, is_cod, line_items }) {
   let matchedRule = null;
   for (const rule of rules) {
     if (!rule.product_id) continue;
     switch (rule.condition) {
       case 'any':
-        matchedRule = rule;
-        break;
+        matchedRule = rule; break;
       case 'cod':
-        if (is_cod) matchedRule = rule;
-        break;
+        if (is_cod) matchedRule = rule; break;
       case 'order_value':
-        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule;
-        break;
-      case 'contains_product':
+        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
+      case 'contains_product': {
         const cartIds = (line_items || []).map(i => String(i.product_id));
-        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule;
-        break;
-      case 'product_category':
+        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule; break;
+      }
+      case 'product_category': {
         const cartTypes = (line_items || []).map(i => (i.product_type || '').toLowerCase());
-        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule;
-        break;
+        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule; break;
+      }
       case 'low_stock':
         try {
           if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-            const invData = await shopifyFetch(`/products/${rule.product_id}.json`);
-            const qty = invData.product?.variants?.[0]?.inventory_quantity || 0;
-            if (qty <= parseFloat(rule.condition_val || 10)) matchedRule = rule;
+            // condition_val format: "product_id:variant_id:threshold"
+            const parts = (rule.condition_val || '').split(':');
+            const targetProductId = parts[0] || rule.product_id;
+            const targetVariantId = parts[1];
+            const threshold = parseInt(parts[2] || '5');
+            // Check if this variant is in cart
+            const cartVariantIds = (line_items || []).map(i => String(i.variant_id));
+            const isInCart = targetVariantId ? cartVariantIds.includes(targetVariantId) : true;
+            if (isInCart) {
+              const invData = await shopifyFetch(`/products/${targetProductId}.json`);
+              const variant = targetVariantId
+                ? invData.product?.variants?.find(v => String(v.id) === targetVariantId)
+                : invData.product?.variants?.[0];
+              const qty = variant?.inventory_quantity || 0;
+              if (qty <= threshold) matchedRule = rule;
+            }
           }
         } catch {}
         break;
@@ -151,8 +119,75 @@ app.post('/api/offer', async (req, res) => {
     }
     if (matchedRule) break;
   }
+  return matchedRule;
+}
 
-  if (!matchedRule) matchedRule = rules.find(r => r.product_id);
+// ── STORE INFO ──
+app.get('/api/store', async (req, res) => {
+  if (!SHOPIFY_STORE) return res.json({ domain: 'dev-store' });
+  try {
+    const d = await shopifyFetch('/shop.json');
+    res.json({ domain: d.shop?.domain || SHOPIFY_STORE, name: d.shop?.name });
+  } catch { res.json({ domain: SHOPIFY_STORE }); }
+});
+
+// ── PRODUCTS ──
+app.get('/api/products', async (req, res) => {
+  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) {
+    return res.json({ products: [
+      { id: '1', title: 'Sample Product A', variants: [{ id: 'v1', price: '499' }], images: [] },
+      { id: '2', title: 'Sample Product B', variants: [{ id: 'v2', price: '999' }], images: [] },
+      { id: '3', title: 'Sample Product C', variants: [{ id: 'v3', price: '299' }], images: [] }
+    ]});
+  }
+  try {
+    const d = await shopifyFetch('/products.json?limit=50&status=active');
+    res.json({ products: d.products || [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── PRODUCTS WITH VARIANTS (for rule builder) ──
+app.get('/api/products-with-variants', async (req, res) => {
+  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return res.json({ products: [] });
+  try {
+    const d = await shopifyFetch('/products.json?limit=50&status=active');
+    const products = (d.products || []).map(p => ({
+      id: p.id,
+      title: p.title,
+      image: p.image?.src || null,
+      variants: (p.variants || []).map(v => ({
+        id: v.id,
+        title: v.title,
+        price: v.price,
+        inventory_quantity: v.inventory_quantity
+      }))
+    }));
+    res.json({ products });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── ORDERS ──
+app.get('/api/orders', async (req, res) => {
+  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return res.json({ orders: [] });
+  try {
+    const d = await shopifyFetch('/orders.json?status=any&limit=50');
+    res.json({ orders: d.orders || [] });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── SINGLE OFFER (original endpoint — kept for post-purchase popup) ──
+app.post('/api/offer', async (req, res) => {
+  const { order_id, order_total, is_cod, line_items } = req.body;
+  let rules = [];
+  if (supabase) {
+    const { data } = await supabase.from('rules').select('*').order('id');
+    rules = data || [];
+  } else {
+    rules = readData().rules || [];
+  }
+  if (rules.length === 0) return res.json({ offer: null });
+
+  const matchedRule = await matchRule(rules, { order_total, is_cod, line_items });
   if (!matchedRule) return res.json({ offer: null });
 
   let productName = matchedRule.product_name || 'Special offer';
@@ -186,6 +221,74 @@ app.post('/api/offer', async (req, res) => {
   });
 });
 
+// ── MULTI OFFER (new endpoint — for carousel cart widget) ──
+app.post('/api/offer-multi', async (req, res) => {
+  const { order_total, is_cod, line_items } = req.body;
+  let rules = [];
+  if (supabase) {
+    const { data } = await supabase.from('rules').select('*').order('id');
+    rules = data || [];
+  } else {
+    rules = readData().rules || [];
+  }
+  if (rules.length === 0) return res.json({ offers: [] });
+
+  const matchedRule = await matchRule(rules, { order_total, is_cod, line_items });
+  if (!matchedRule) return res.json({ offers: [] });
+
+  // Get all product IDs from rule (supports up to 3)
+  const productIds = [
+    matchedRule.product_id,
+    matchedRule.product_id2,
+    matchedRule.product_id3
+  ].filter(Boolean);
+
+  const offers = [];
+  for (const pid of productIds) {
+    try {
+      if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
+        const pData = await shopifyFetch(`/products/${pid}.json`);
+        if (pData.product) {
+          const variant = pData.product.variants?.[0];
+          const qty = variant?.inventory_quantity || 99;
+          // Check if already in cart
+          const cartVariantIds = (line_items || []).map(i => String(i.variant_id));
+          if (cartVariantIds.includes(String(variant?.id))) continue;
+          offers.push({
+            product_id: pid,
+            variant_id: variant?.id?.toString(),
+            product_name: pData.product.title,
+            image_url: pData.product.image?.src || null,
+            original_price: variant?.price || '499',
+            discount_pct: matchedRule.discount || 15,
+            trigger_rule: matchedRule.condition,
+            stock_qty: qty,
+            low_stock: qty > 0 && qty <= 5,
+            urgency_text: qty > 0 && qty <= 5 ? `Only ${qty} left!` : null
+          });
+        }
+      } else {
+        // Dev mode fallback
+        offers.push({
+          product_id: pid,
+          variant_id: pid + '_v1',
+          product_name: 'Sample Product',
+          image_url: null,
+          original_price: '499',
+          discount_pct: matchedRule.discount || 15,
+          trigger_rule: matchedRule.condition,
+          stock_qty: 10,
+          low_stock: false,
+          urgency_text: null
+        });
+      }
+    } catch (e) { console.error('Multi offer error:', e.message); }
+  }
+
+  res.json({ offers, matched_condition: matchedRule.condition });
+});
+
+// ── SAVE RULES ──
 app.post('/api/rules', async (req, res) => {
   const rules = req.body.rules || [];
   if (supabase) {
@@ -210,6 +313,7 @@ app.get('/api/rules', async (req, res) => {
   res.json({ rules: readData().rules || [] });
 });
 
+// ── EVENTS ──
 app.post('/api/events', async (req, res) => {
   const event = { ...req.body, date: req.body.date || new Date().toISOString() };
   if (supabase) {
@@ -233,6 +337,7 @@ app.get('/api/events', async (req, res) => {
   res.json({ events: (readData().events || []).slice(-200).reverse() });
 });
 
+// ── SETTINGS ──
 app.post('/api/settings', async (req, res) => {
   if (supabase) {
     await supabase.from('settings').upsert({ ...req.body, shop_domain: 'default' }, { onConflict: 'shop_domain' });
@@ -252,6 +357,7 @@ app.get('/api/settings', async (req, res) => {
   res.json({ settings: readData().settings || {} });
 });
 
+// ── AI ASSISTANT ──
 app.post('/api/ai', async (req, res) => {
   if (!ANTHROPIC_API_KEY) return res.json({ reply: 'Add ANTHROPIC_API_KEY to Railway variables to enable AI.' });
   try {
@@ -275,6 +381,7 @@ app.post('/api/ai', async (req, res) => {
   } catch (e) { res.status(500).json({ reply: 'AI error.' }); }
 });
 
+// ── SHOPIFY ORDER WEBHOOK ──
 app.post('/webhooks/orders/create', express.raw({type:'application/json'}), async (req, res) => {
   res.sendStatus(200);
   try {
@@ -299,6 +406,7 @@ app.post('/webhooks/orders/create', express.raw({type:'application/json'}), asyn
   } catch(e) { console.error('Webhook error:', e.message); }
 });
 
+// ── HEALTH ──
 app.get('/health', async (req, res) => {
   let rulesCount = 0;
   let eventsCount = 0;
@@ -318,7 +426,7 @@ app.get('/health', async (req, res) => {
     rules: rulesCount,
     events: eventsCount,
     supabase: !!supabase,
-    version: '2.2.0'
+    version: '2.3.0'
   });
 });
 
@@ -326,5 +434,5 @@ app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 
 const PORT = process.env.PORT || 3000;
 initSupabase().then(() => {
-  app.listen(PORT, () => console.log(`UpsellBoost v2.2 running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`UpsellBoost v2.3 running on port ${PORT}`));
 });
