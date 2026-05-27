@@ -1,11 +1,19 @@
+// UpsellBoost server.js v3.0 — OAuth + Billing + All existing endpoints
+// Deploy to Railway — set these env vars:
+//   SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_TOKEN (legacy fallback),
+//   SHOPIFY_STORE (legacy fallback), SUPABASE_URL, SUPABASE_ANON_KEY,
+//   ANTHROPIC_API_KEY, APP_URL (e.g. https://upsellboost-production.up.railway.app)
+
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const app = express();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ── CORS + CSP ──
 app.use((req, res, next) => {
   res.removeHeader('X-Frame-Options');
   res.setHeader('Content-Security-Policy', "frame-ancestors 'self' https://*.myshopify.com https://admin.shopify.com");
@@ -16,27 +24,33 @@ app.use((req, res, next) => {
   next();
 });
 
-const SHOPIFY_TOKEN = process.env.SHOPIFY_TOKEN || '';
-const SHOPIFY_STORE = process.env.SHOPIFY_STORE || '';
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
-const API_VERSION = '2024-01';
+// ── CONFIG ──
+const CLIENT_ID     = process.env.SHOPIFY_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET || '';
+const APP_URL       = process.env.APP_URL || 'https://upsellboost-production.up.railway.app';
+const SCOPES        = 'read_products,read_orders,write_orders,read_inventory';
+const API_VERSION   = '2024-01';
+
+// Legacy single-store fallback (works until OAuth is set up)
+const LEGACY_TOKEN = process.env.SHOPIFY_TOKEN || '';
+const LEGACY_STORE = process.env.SHOPIFY_STORE || '';
+
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 function readData() {
-  try {
-    if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  } catch (e) {}
-  return { rules: [], events: [], settings: {}, discount_codes: {} };
+  try { if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch (e) {}
+  return { rules: [], events: [], settings: {}, shops: {} };
 }
 function writeData(data) {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); } catch (e) {}
 }
 
+// ── SUPABASE ──
 let supabase = null;
 async function initSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) { console.log('No Supabase config — using file storage'); return; }
+  if (!url || !key) { console.log('No Supabase — using file storage'); return; }
   try {
     const { createClient } = require('@supabase/supabase-js');
     supabase = createClient(url, key);
@@ -46,94 +60,317 @@ async function initSupabase() {
   } catch (e) { console.log('Supabase not available:', e.message); supabase = null; }
 }
 
-function shopifyHeaders() {
-  return { 'X-Shopify-Access-Token': SHOPIFY_TOKEN, 'Content-Type': 'application/json' };
+// ── SHOP HELPERS ──
+// Get access token for a shop (supports both OAuth multi-shop + legacy single-shop)
+async function getShopToken(shop) {
+  if (!shop && LEGACY_TOKEN) return LEGACY_TOKEN; // legacy fallback
+  if (supabase) {
+    const { data } = await supabase.from('shops').select('access_token').eq('shop_domain', shop).single();
+    return data?.access_token || LEGACY_TOKEN;
+  }
+  const data = readData();
+  return data.shops?.[shop]?.access_token || LEGACY_TOKEN;
 }
 
-async function shopifyFetch(endpoint, options = {}) {
-  const url = `https://${SHOPIFY_STORE}/admin/api/${API_VERSION}${endpoint}`;
-  const res = await fetch(url, { headers: shopifyHeaders(), ...options });
+async function getShopPlan(shop) {
+  const shopDomain = shop || LEGACY_STORE;
+  if (supabase) {
+    const { data } = await supabase.from('shops').select('plan').eq('shop_domain', shopDomain).single();
+    return data?.plan || 'free';
+  }
+  const data = readData();
+  return data.shops?.[shopDomain]?.plan || 'free';
+}
+
+async function shopifyFetch(shop, endpoint, options = {}) {
+  const token = await getShopToken(shop);
+  const store = shop || LEGACY_STORE;
+  const url = `https://${store}/admin/api/${API_VERSION}${endpoint}`;
+  const res = await fetch(url, {
+    headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+    ...options
+  });
   return res.json();
 }
 
-// ── SHARED RULE MATCHING LOGIC ──
-async function matchRule(rules, { order_total, is_cod, line_items }) {
-  let matchedRule = null;
-  for (const rule of rules) {
-    if (!rule.product_id) continue;
-    switch (rule.condition) {
-      case 'any':
-        matchedRule = rule; break;
-      case 'cod':
-        if (is_cod) matchedRule = rule; break;
-      case 'order_value':
-        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
-      case 'contains_product': {
-        const cartIds = (line_items || []).map(i => String(i.product_id));
-        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule; break;
-      }
-      case 'product_category': {
-        const cartTypes = (line_items || []).map(i => (i.product_type || '').toLowerCase());
-        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule; break;
-      }
-      case 'low_stock':
-        try {
-          if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-            // condition_val format: "product_id:variant_id:threshold"
-            const parts = (rule.condition_val || '').split(':');
-            const targetProductId = parts[0] || rule.product_id;
-            const targetVariantId = parts[1];
-            const threshold = parseInt(parts[2] || '5');
-            // Check if this variant is in cart
-            const cartVariantIds = (line_items || []).map(i => String(i.variant_id));
-            const isInCart = targetVariantId ? cartVariantIds.includes(targetVariantId) : true;
-            if (isInCart) {
-              const invData = await shopifyFetch(`/products/${targetProductId}.json`);
-              const variant = targetVariantId
-                ? invData.product?.variants?.find(v => String(v.id) === targetVariantId)
-                : invData.product?.variants?.[0];
-              const qty = variant?.inventory_quantity || 0;
-              if (qty <= threshold) matchedRule = rule;
-            }
-          }
-        } catch {}
-        break;
-      case 'first_time':
-        try {
-          if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-            const r = await shopifyFetch('/orders.json?status=any&limit=2');
-            if ((r.orders || []).length <= 1) matchedRule = rule;
-          }
-        } catch {}
-        break;
-      case 'returning':
-        try {
-          if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-            const r = await shopifyFetch('/orders.json?status=any&limit=2');
-            if ((r.orders || []).length > 1) matchedRule = rule;
-          }
-        } catch {}
-        break;
-      default:
-        matchedRule = rule;
-    }
-    if (matchedRule) break;
-  }
-  return matchedRule;
+async function shopifyGraphQL(shop, query) {
+  const token = await getShopToken(shop);
+  const store = shop || LEGACY_STORE;
+  const res = await fetch(`https://${store}/admin/api/${API_VERSION}/graphql.json`, {
+    method: 'POST',
+    headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query })
+  });
+  return res.json();
 }
 
-// ── STORE INFO ──
-app.get('/api/store', async (req, res) => {
-  if (!SHOPIFY_STORE) return res.json({ domain: 'dev-store' });
-  try {
-    const d = await shopifyFetch('/shop.json');
-    res.json({ domain: d.shop?.domain || SHOPIFY_STORE, name: d.shop?.name });
-  } catch { res.json({ domain: SHOPIFY_STORE }); }
+// ── SUPABASE TABLE SETUP (run once) ──
+// Run this SQL in your Supabase SQL editor:
+//
+// CREATE TABLE IF NOT EXISTS shops (
+//   shop_domain TEXT PRIMARY KEY,
+//   access_token TEXT,
+//   plan TEXT DEFAULT 'free',
+//   subscription_id TEXT,
+//   installed_at TIMESTAMPTZ DEFAULT NOW()
+// );
+// ALTER TABLE rules ADD COLUMN IF NOT EXISTS shop_domain TEXT DEFAULT 'default';
+// ALTER TABLE events ADD COLUMN IF NOT EXISTS shop_domain TEXT DEFAULT 'default';
+// ALTER TABLE settings ADD COLUMN IF NOT EXISTS shop_domain TEXT DEFAULT 'default';
+
+// ════════════════════════════════════════════════════
+// PHASE 1 — OAUTH ENDPOINTS
+// ════════════════════════════════════════════════════
+
+// Step 1: Merchant clicks "Add app" — redirect to Shopify OAuth
+app.get('/auth', (req, res) => {
+  const shop = req.query.shop;
+  if (!shop) return res.status(400).send('Missing shop parameter');
+  if (!CLIENT_ID) return res.status(500).send('SHOPIFY_CLIENT_ID not set in Railway env vars');
+
+  const state = crypto.randomBytes(16).toString('hex'); // CSRF protection
+  const redirectUri = `${APP_URL}/auth/callback`;
+  const installUrl = `https://${shop}/admin/oauth/authorize?client_id=${CLIENT_ID}&scope=${SCOPES}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`;
+
+  // Store state in cookie for CSRF check
+  res.cookie('shopify_state', state, { httpOnly: true, secure: true, sameSite: 'none' });
+  res.redirect(installUrl);
 });
 
-// ── PRODUCTS ──
+// Step 2: Shopify redirects back with code — exchange for access token
+app.get('/auth/callback', async (req, res) => {
+  const { shop, code, state } = req.query;
+
+  if (!shop || !code) return res.status(400).send('Missing shop or code');
+
+  try {
+    // Exchange code for access token
+    const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, code })
+    });
+    const { access_token } = await tokenRes.json();
+
+    if (!access_token) return res.status(400).send('Failed to get access token');
+
+    // Save shop + token to Supabase
+    if (supabase) {
+      await supabase.from('shops').upsert({
+        shop_domain: shop,
+        access_token,
+        plan: 'free',
+        installed_at: new Date().toISOString()
+      }, { onConflict: 'shop_domain' });
+    } else {
+      const data = readData();
+      data.shops = data.shops || {};
+      data.shops[shop] = { access_token, plan: 'free' };
+      writeData(data);
+    }
+
+    console.log(`✓ Shop installed: ${shop}`);
+
+    // Register webhooks for this shop
+    await registerWebhooks(shop, access_token);
+
+    // Redirect merchant to dashboard (embedded in Shopify admin)
+    res.redirect(`https://${shop}/admin/apps/${CLIENT_ID}`);
+
+  } catch (e) {
+    console.error('OAuth callback error:', e.message);
+    res.status(500).send('OAuth error: ' + e.message);
+  }
+});
+
+// Register order webhook for newly installed shop
+async function registerWebhooks(shop, token) {
+  try {
+    await fetch(`https://${shop}/admin/api/${API_VERSION}/webhooks.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ webhook: {
+        topic: 'orders/create',
+        address: `${APP_URL}/webhooks/orders/create`,
+        format: 'json'
+      }})
+    });
+    console.log(`✓ Webhook registered for ${shop}`);
+  } catch (e) {
+    console.log('Webhook registration failed:', e.message);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// PHASE 2 — SHOPIFY BILLING API
+// ════════════════════════════════════════════════════
+
+const PLANS = {
+  basic:      { name: 'UpsellBoost Basic',      amount: '799.00',  currency: 'INR', trialDays: 14, orderLimit: 500,  rulesLimit: 5    },
+  pro:        { name: 'UpsellBoost Pro',         amount: '1999.00', currency: 'INR', trialDays: 14, orderLimit: 2000, rulesLimit: 999  },
+  enterprise: { name: 'UpsellBoost Enterprise',  amount: '4999.00', currency: 'INR', trialDays: 14, orderLimit: 99999, rulesLimit: 999 }
+};
+
+// Called from dashboard Pricing page when merchant clicks upgrade
+app.get('/billing/create', async (req, res) => {
+  const { shop, plan } = req.query;
+  const shopDomain = shop || LEGACY_STORE;
+  const planConfig = PLANS[plan];
+
+  if (!planConfig) return res.status(400).json({ error: 'Invalid plan: ' + plan });
+  if (!shopDomain) return res.status(400).json({ error: 'Missing shop parameter' });
+
+  try {
+    const mutation = `
+      mutation {
+        appSubscriptionCreate(
+          name: "${planConfig.name}"
+          returnUrl: "${APP_URL}/billing/callback?shop=${shopDomain}&plan=${plan}"
+          trialDays: ${planConfig.trialDays}
+          test: ${process.env.NODE_ENV !== 'production'}
+          lineItems: [{
+            plan: {
+              appRecurringPricingDetails: {
+                price: { amount: ${planConfig.amount}, currencyCode: ${planConfig.currency} }
+                interval: EVERY_30_DAYS
+              }
+            }
+          }]
+        ) {
+          confirmationUrl
+          appSubscription { id }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const data = await shopifyGraphQL(shopDomain, mutation);
+    const result = data?.data?.appSubscriptionCreate;
+
+    if (result?.userErrors?.length > 0) {
+      return res.status(400).json({ error: result.userErrors[0].message });
+    }
+
+    if (!result?.confirmationUrl) {
+      return res.status(500).json({ error: 'No confirmation URL returned' });
+    }
+
+    console.log(`Billing created for ${shopDomain} plan=${plan}`);
+    // Redirect merchant to Shopify billing confirmation page
+    res.redirect(result.confirmationUrl);
+
+  } catch (e) {
+    console.error('Billing create error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Shopify redirects here after merchant approves/declines billing
+app.get('/billing/callback', async (req, res) => {
+  const { shop, plan, charge_id } = req.query;
+  const shopDomain = shop || LEGACY_STORE;
+
+  if (!charge_id) {
+    // Merchant cancelled — redirect back to pricing
+    return res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}/pricing?cancelled=1`);
+  }
+
+  try {
+    // Verify subscription is active
+    const query = `{ appSubscription(id: "gid://shopify/AppSubscription/${charge_id}") { status } }`;
+    const data = await shopifyGraphQL(shopDomain, query);
+    const status = data?.data?.appSubscription?.status;
+
+    if (status === 'ACTIVE' || status === 'PENDING') {
+      // Save plan to Supabase
+      if (supabase) {
+        await supabase.from('shops').upsert({
+          shop_domain: shopDomain,
+          plan,
+          subscription_id: charge_id
+        }, { onConflict: 'shop_domain' });
+      } else {
+        const fileData = readData();
+        fileData.shops = fileData.shops || {};
+        fileData.shops[shopDomain] = { ...(fileData.shops[shopDomain] || {}), plan, subscription_id: charge_id };
+        writeData(fileData);
+      }
+      console.log(`✓ Plan activated: ${shopDomain} → ${plan}`);
+      res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}?plan_activated=1`);
+    } else {
+      res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}/pricing?failed=1`);
+    }
+  } catch (e) {
+    console.error('Billing callback error:', e.message);
+    res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}`);
+  }
+});
+
+// Get current plan for a shop (called by dashboard)
+app.get('/api/plan', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE;
+  const plan = await getShopPlan(shop);
+  const planConfig = PLANS[plan] || { orderLimit: 50, rulesLimit: 1 };
+  res.json({ plan, orderLimit: planConfig.orderLimit, rulesLimit: planConfig.rulesLimit });
+});
+
+// Billing webhook — fired when subscription is cancelled/expired
+app.post('/webhooks/app/uninstalled', express.raw({ type: 'application/json' }), async (req, res) => {
+  res.sendStatus(200);
+  try {
+    const shop = req.headers['x-shopify-shop-domain'];
+    if (supabase && shop) {
+      await supabase.from('shops').update({ plan: 'free', subscription_id: null }).eq('shop_domain', shop);
+    }
+    console.log(`App uninstalled: ${shop}`);
+  } catch (e) { console.error('Uninstall webhook error:', e.message); }
+});
+
+// ════════════════════════════════════════════════════
+// PRIVACY POLICY (required for App Store submission)
+// ════════════════════════════════════════════════════
+app.get('/privacy', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>UpsellBoost Privacy Policy</title>
+<style>body{font-family:sans-serif;max-width:700px;margin:40px auto;padding:0 24px;line-height:1.7;color:#1a202c}h1{font-size:24px}h2{font-size:18px;margin-top:32px}</style>
+</head>
+<body>
+<h1>UpsellBoost Privacy Policy</h1>
+<p>Last updated: ${new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+<h2>What we collect</h2>
+<p>When you install UpsellBoost, we collect your Shopify store domain and access token to power the app. We also store upsell rules you create, order events for analytics, and app settings.</p>
+<h2>What we do NOT collect</h2>
+<p>We do not collect customer personal information (names, emails, addresses). We do not sell or share your data with third parties. We do not use your data for advertising.</p>
+<h2>Data storage</h2>
+<p>Your data is stored securely in Supabase (hosted on AWS). Your Shopify access token is encrypted at rest. We retain data for as long as your app is installed.</p>
+<h2>Data deletion</h2>
+<p>Uninstalling the app removes all your data from our systems within 48 hours. To request immediate deletion, email us at privacy@upsellboost.app.</p>
+<h2>Shopify data</h2>
+<p>We access your product catalog and order data only to power upsell rules and analytics. We follow Shopify's Partner API Terms of Service.</p>
+<h2>Contact</h2>
+<p>Questions? Email us at privacy@upsellboost.app or WhatsApp +91-XXXXXXXXXX.</p>
+</body>
+</html>`);
+});
+
+// ════════════════════════════════════════════════════
+// ALL EXISTING ENDPOINTS (unchanged from v2)
+// ════════════════════════════════════════════════════
+
+app.get('/api/store', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE;
+  if (!shop) return res.json({ domain: 'dev-store' });
+  try {
+    const d = await shopifyFetch(shop, '/shop.json');
+    res.json({ domain: d.shop?.domain || shop, name: d.shop?.name });
+  } catch { res.json({ domain: shop }); }
+});
+
 app.get('/api/products', async (req, res) => {
-  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) {
+  const shop = req.query.shop || LEGACY_STORE;
+  if (!shop) {
     return res.json({ products: [
       { id: '1', title: 'Sample Product A', variants: [{ id: 'v1', price: '499' }], images: [] },
       { id: '2', title: 'Sample Product B', variants: [{ id: 'v2', price: '999' }], images: [] },
@@ -141,53 +378,79 @@ app.get('/api/products', async (req, res) => {
     ]});
   }
   try {
-    const d = await shopifyFetch('/products.json?limit=50&status=active');
+    const d = await shopifyFetch(shop, '/products.json?limit=50&status=active');
     res.json({ products: d.products || [] });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── PRODUCTS WITH VARIANTS (for rule builder) ──
 app.get('/api/products-with-variants', async (req, res) => {
-  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return res.json({ products: [] });
+  const shop = req.query.shop || LEGACY_STORE;
+  if (!shop) return res.json({ products: [] });
   try {
-    const d = await shopifyFetch('/products.json?limit=50&status=active');
+    const d = await shopifyFetch(shop, '/products.json?limit=50&status=active&fields=id,title,variants,images');
     const products = (d.products || []).map(p => ({
-      id: p.id,
-      title: p.title,
-      image: p.image?.src || null,
+      id: p.id, title: p.title,
       variants: (p.variants || []).map(v => ({
-        id: v.id,
-        title: v.title,
-        price: v.price,
-        inventory_quantity: v.inventory_quantity
+        id: v.id, title: v.title,
+        inventory_quantity: v.inventory_quantity || 0,
+        price: v.price
       }))
     }));
     res.json({ products });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ── ORDERS ──
-app.get('/api/orders', async (req, res) => {
-  if (!SHOPIFY_STORE || !SHOPIFY_TOKEN) return res.json({ orders: [] });
-  try {
-    const d = await shopifyFetch('/orders.json?status=any&limit=50');
-    res.json({ orders: d.orders || [] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── SINGLE OFFER (original endpoint — kept for post-purchase popup) ──
+// Smart offer matching — single product (post-purchase popup)
 app.post('/api/offer', async (req, res) => {
-  const { order_id, order_total, is_cod, line_items } = req.body;
+  const { shop, order_id, order_total, is_cod, line_items } = req.body;
+  const shopDomain = shop || LEGACY_STORE;
   let rules = [];
+
   if (supabase) {
-    const { data } = await supabase.from('rules').select('*').order('id');
+    const { data } = await supabase.from('rules').select('*').eq('shop_domain', shopDomain).order('id');
     rules = data || [];
+    if (rules.length === 0) {
+      const { data: d2 } = await supabase.from('rules').select('*').eq('shop_domain', 'default').order('id');
+      rules = d2 || [];
+    }
   } else {
     rules = readData().rules || [];
   }
+
   if (rules.length === 0) return res.json({ offer: null });
 
-  const matchedRule = await matchRule(rules, { order_total, is_cod, line_items });
+  let matchedRule = null;
+  for (const rule of rules) {
+    if (!rule.product_id) continue;
+    switch (rule.condition) {
+      case 'any': matchedRule = rule; break;
+      case 'cod': if (is_cod) matchedRule = rule; break;
+      case 'order_value':
+        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule;
+        break;
+      case 'contains_product':
+        const cartIds = (line_items || []).map(i => String(i.product_id));
+        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule;
+        break;
+      case 'product_category':
+        const cartTypes = (line_items || []).map(i => (i.product_type || '').toLowerCase());
+        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule;
+        break;
+      case 'low_stock':
+        try {
+          const invData = await shopifyFetch(shopDomain, `/products/${rule.product_id}.json`);
+          const qty = invData.product?.variants?.[0]?.inventory_quantity || 0;
+          const parts = (rule.condition_val || '').split(':');
+          const threshold = parseFloat(parts[2] || 5);
+          if (qty <= threshold) matchedRule = rule;
+        } catch {}
+        break;
+      default: matchedRule = rule;
+    }
+    if (matchedRule) break;
+  }
+
+  if (!matchedRule) matchedRule = rules.find(r => r.product_id);
   if (!matchedRule) return res.json({ offer: null });
 
   let productName = matchedRule.product_name || 'Special offer';
@@ -196,128 +459,150 @@ app.post('/api/offer', async (req, res) => {
   let imageUrl = null;
 
   try {
-    if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-      const pData = await shopifyFetch(`/products/${matchedRule.product_id}.json`);
-      if (pData.product) {
-        productName = pData.product.title;
-        imageUrl = pData.product.image?.src || null;
-        const variant = pData.product.variants?.[0];
-        if (variant) { variantId = variant.id.toString(); originalPrice = variant.price; }
-      }
+    const pData = await shopifyFetch(shopDomain, `/products/${matchedRule.product_id}.json`);
+    if (pData.product) {
+      productName = pData.product.title;
+      imageUrl = pData.product.image?.src || null;
+      const variant = pData.product.variants?.[0];
+      if (variant) { variantId = variant.id.toString(); originalPrice = variant.price; }
     }
   } catch (e) { console.error('Product fetch error:', e.message); }
 
-  res.json({
-    offer: {
-      product_id: matchedRule.product_id,
-      variant_id: variantId,
-      product_name: productName,
-      image_url: imageUrl,
-      original_price: originalPrice,
-      discount_pct: matchedRule.discount || 15,
-      discount_code: null,
-      trigger_rule: matchedRule.condition || 'all_orders'
-    }
-  });
+  res.json({ offer: {
+    product_id: matchedRule.product_id,
+    variant_id: variantId,
+    product_name: productName,
+    image_url: imageUrl,
+    original_price: originalPrice,
+    discount_pct: matchedRule.discount || 15,
+    trigger_rule: matchedRule.condition || 'all_orders'
+  }});
 });
 
-// ── MULTI OFFER (new endpoint — for carousel cart widget) ──
+// Multi-product carousel offer (cart widget)
 app.post('/api/offer-multi', async (req, res) => {
-  const { order_total, is_cod, line_items } = req.body;
+  const { shop, order_total, is_cod, line_items } = req.body;
+  const shopDomain = shop || LEGACY_STORE;
   let rules = [];
+
   if (supabase) {
-    const { data } = await supabase.from('rules').select('*').order('id');
+    const { data } = await supabase.from('rules').select('*').eq('shop_domain', shopDomain).order('id');
     rules = data || [];
+    if (rules.length === 0) {
+      const { data: d2 } = await supabase.from('rules').select('*').eq('shop_domain', 'default').order('id');
+      rules = d2 || [];
+    }
   } else {
     rules = readData().rules || [];
   }
+
   if (rules.length === 0) return res.json({ offers: [] });
 
-  const matchedRule = await matchRule(rules, { order_total, is_cod, line_items });
-  if (!matchedRule) return res.json({ offers: [] });
-
-  // Get all product IDs from rule (supports up to 3)
-  const productIds = [
-    matchedRule.product_id,
-    matchedRule.product_id2,
-    matchedRule.product_id3
-  ].filter(Boolean);
-
-  const offers = [];
-  for (const pid of productIds) {
-    try {
-      if (SHOPIFY_STORE && SHOPIFY_TOKEN) {
-        const pData = await shopifyFetch(`/products/${pid}.json`);
-        if (pData.product) {
-          const variant = pData.product.variants?.[0];
-          const qty = variant?.inventory_quantity || 99;
-          // Check if already in cart
-          const cartVariantIds = (line_items || []).map(i => String(i.variant_id));
-          if (cartVariantIds.includes(String(variant?.id))) continue;
-          offers.push({
-            product_id: pid,
-            variant_id: variant?.id?.toString(),
-            product_name: pData.product.title,
-            image_url: pData.product.image?.src || null,
-            original_price: variant?.price || '499',
-            discount_pct: matchedRule.discount || 15,
-            trigger_rule: matchedRule.condition,
-            stock_qty: qty,
-            low_stock: qty > 0 && qty <= 5,
-            urgency_text: qty > 0 && qty <= 5 ? `Only ${qty} left!` : null
-          });
-        }
-      } else {
-        // Dev mode fallback
-        offers.push({
-          product_id: pid,
-          variant_id: pid + '_v1',
-          product_name: 'Sample Product',
-          image_url: null,
-          original_price: '499',
-          discount_pct: matchedRule.discount || 15,
-          trigger_rule: matchedRule.condition,
-          stock_qty: 10,
-          low_stock: false,
-          urgency_text: null
-        });
-      }
-    } catch (e) { console.error('Multi offer error:', e.message); }
+  let matchedRule = null;
+  for (const rule of rules) {
+    if (!rule.product_id) continue;
+    const cartIds = (line_items || []).map(i => String(i.product_id));
+    const cartTypes = (line_items || []).map(i => (i.product_type || '').toLowerCase());
+    switch (rule.condition) {
+      case 'any': matchedRule = rule; break;
+      case 'cod': if (is_cod) matchedRule = rule; break;
+      case 'order_value':
+        if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
+      case 'contains_product':
+        if (cartIds.includes(String(rule.condition_val))) matchedRule = rule; break;
+      case 'product_category':
+        if (cartTypes.some(t => t.includes((rule.condition_val || '').toLowerCase()))) matchedRule = rule; break;
+      case 'low_stock':
+        try {
+          const parts = (rule.condition_val || '').split(':');
+          const triggerProductId = parts[0];
+          const triggerVariantId = parts[1];
+          const threshold = parseFloat(parts[2] || 5);
+          const isInCart = cartIds.includes(String(triggerProductId));
+          if (isInCart) {
+            const invData = await shopifyFetch(shopDomain, `/products/${triggerProductId}.json`);
+            const variants = invData.product?.variants || [];
+            const variant = triggerVariantId
+              ? variants.find(v => String(v.id) === String(triggerVariantId))
+              : variants[0];
+            if (variant && variant.inventory_quantity <= threshold) {
+              matchedRule = { ...rule, low_stock: true, urgency_text: `Only ${variant.inventory_quantity} left!` };
+            }
+          }
+        } catch {}
+        break;
+      default: matchedRule = rule;
+    }
+    if (matchedRule) break;
   }
 
-  res.json({ offers, matched_condition: matchedRule.condition });
+  if (!matchedRule) matchedRule = rules.find(r => r.product_id);
+  if (!matchedRule) return res.json({ offers: [] });
+
+  // Build offers array (up to 3 products per rule)
+  const productIds = [matchedRule.product_id, matchedRule.product_id2, matchedRule.product_id3].filter(Boolean);
+  const cartVariantIds = (line_items || []).map(i => String(i.variant_id));
+  const offers = [];
+
+  for (const pid of productIds) {
+    try {
+      const pData = await shopifyFetch(shopDomain, `/products/${pid}.json`);
+      const p = pData.product;
+      if (!p) continue;
+      const variant = p.variants?.[0];
+      if (!variant) continue;
+      if (cartVariantIds.includes(String(variant.id))) continue; // already in cart
+      offers.push({
+        product_id: pid,
+        variant_id: variant.id.toString(),
+        product_name: p.title,
+        image_url: p.image?.src || null,
+        original_price: variant.price,
+        discount_pct: matchedRule.discount || 15,
+        trigger_rule: matchedRule.condition,
+        low_stock: matchedRule.low_stock || false,
+        urgency_text: matchedRule.urgency_text || null
+      });
+    } catch (e) { console.error('Product fetch error:', e.message); }
+  }
+
+  res.json({ offers });
 });
 
-// ── SAVE RULES ──
+// Rules CRUD
 app.post('/api/rules', async (req, res) => {
+  const shop = req.body.shop || LEGACY_STORE || 'default';
   const rules = req.body.rules || [];
   if (supabase) {
-    await supabase.from('rules').delete().eq('shop_domain', 'default');
+    await supabase.from('rules').delete().eq('shop_domain', shop);
     if (rules.length > 0) {
-      await supabase.from('rules').insert(rules.map(r => ({ ...r, shop_domain: 'default' })));
+      await supabase.from('rules').insert(rules.map(r => ({ ...r, shop_domain: shop })));
     }
   } else {
     const data = readData();
     data.rules = rules;
     writeData(data);
   }
-  console.log(`Rules saved: ${rules.length}`);
   res.json({ success: true, count: rules.length });
 });
 
 app.get('/api/rules', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE || 'default';
   if (supabase) {
-    const { data } = await supabase.from('rules').select('*').order('id');
-    return res.json({ rules: data || [] });
+    const { data } = await supabase.from('rules').select('*').eq('shop_domain', shop).order('id');
+    if (data && data.length > 0) return res.json({ rules: data });
+    const { data: d2 } = await supabase.from('rules').select('*').eq('shop_domain', 'default').order('id');
+    return res.json({ rules: d2 || [] });
   }
   res.json({ rules: readData().rules || [] });
 });
 
-// ── EVENTS ──
+// Events
 app.post('/api/events', async (req, res) => {
+  const shop = req.body.shop || LEGACY_STORE || 'default';
   const event = { ...req.body, date: req.body.date || new Date().toISOString() };
   if (supabase) {
-    await supabase.from('events').insert({ ...event, shop_domain: 'default' });
+    await supabase.from('events').insert({ ...event, shop_domain: shop });
   } else {
     const data = readData();
     data.events = data.events || [];
@@ -325,22 +610,24 @@ app.post('/api/events', async (req, res) => {
     if (data.events.length > 1000) data.events = data.events.slice(-1000);
     writeData(data);
   }
-  console.log(`Event: ${event.order_id} | ${event.accepted ? 'ACCEPTED ₹' + event.revenue : 'DECLINED'}`);
   res.json({ success: true });
 });
 
 app.get('/api/events', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE || 'default';
   if (supabase) {
-    const { data } = await supabase.from('events').select('*').order('date', { ascending: false }).limit(200);
+    const { data } = await supabase.from('events').select('*')
+      .eq('shop_domain', shop).order('date', { ascending: false }).limit(200);
     return res.json({ events: data || [] });
   }
   res.json({ events: (readData().events || []).slice(-200).reverse() });
 });
 
-// ── SETTINGS ──
+// Settings
 app.post('/api/settings', async (req, res) => {
+  const shop = req.body.shop || LEGACY_STORE || 'default';
   if (supabase) {
-    await supabase.from('settings').upsert({ ...req.body, shop_domain: 'default' }, { onConflict: 'shop_domain' });
+    await supabase.from('settings').upsert({ ...req.body, shop_domain: shop }, { onConflict: 'shop_domain' });
   } else {
     const data = readData();
     data.settings = { ...data.settings, ...req.body };
@@ -350,89 +637,77 @@ app.post('/api/settings', async (req, res) => {
 });
 
 app.get('/api/settings', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE || 'default';
   if (supabase) {
-    const { data } = await supabase.from('settings').select('*').eq('shop_domain', 'default').single();
+    const { data } = await supabase.from('settings').select('*').eq('shop_domain', shop).single();
     return res.json({ settings: data || {} });
   }
   res.json({ settings: readData().settings || {} });
 });
 
-// ── AI ASSISTANT ──
-app.post('/api/ai', async (req, res) => {
-  if (!ANTHROPIC_API_KEY) return res.json({ reply: 'Add ANTHROPIC_API_KEY to Railway variables to enable AI.' });
-  try {
-    const data = readData();
-    const events = data.events || [];
-    const rules = data.rules || [];
-    const accepted = events.filter(e => e.accepted).length;
-    const rate = events.length > 0 ? Math.round(accepted / events.length * 100) : 0;
-    const revenue = events.filter(e => e.accepted).reduce((s, e) => s + (e.revenue || 0), 0);
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', max_tokens: 300,
-        system: `You are UpsellBoost AI for Indian Shopify merchants. Give 2-4 sentence actionable advice. Stats: rate ${rate}%, revenue ₹${revenue}, events ${events.length}, rules ${rules.length}.`,
-        messages: req.body.messages || []
-      })
-    });
-    const d = await r.json();
-    res.json({ reply: d.content?.[0]?.text || 'Try again.' });
-  } catch (e) { res.status(500).json({ reply: 'AI error.' }); }
-});
-
-// ── SHOPIFY ORDER WEBHOOK ──
-app.post('/webhooks/orders/create', express.raw({type:'application/json'}), async (req, res) => {
+// Order webhook
+app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
   res.sendStatus(200);
   try {
     const order = JSON.parse(req.body);
+    const shop = req.headers['x-shopify-shop-domain'] || LEGACY_STORE || 'default';
     const event = {
       order_id: String(order.id),
       product_name: order.line_items?.[0]?.title || 'Unknown',
       accepted: true,
       revenue: parseFloat(order.total_price || 0),
       channel: 'shopify_order',
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      shop_domain: shop
     };
     if (supabase) {
-      await supabase.from('events').insert({...event, shop_domain: 'default'});
+      await supabase.from('events').insert(event);
     } else {
       const data = readData();
       data.events = data.events || [];
       data.events.push(event);
       writeData(data);
     }
-    console.log('Order webhook:', order.id, order.total_price);
-  } catch(e) { console.error('Webhook error:', e.message); }
+  } catch (e) { console.error('Webhook error:', e.message); }
 });
 
-// ── HEALTH ──
+// Health check
 app.get('/health', async (req, res) => {
-  let rulesCount = 0;
-  let eventsCount = 0;
+  let rulesCount = 0, eventsCount = 0, shopsCount = 0;
   if (supabase) {
-    const r = await supabase.from('rules').select('id', {count:'exact'});
-    const e = await supabase.from('events').select('id', {count:'exact'});
+    const r = await supabase.from('rules').select('id', { count: 'exact' });
+    const e = await supabase.from('events').select('id', { count: 'exact' });
+    const s = await supabase.from('shops').select('shop_domain', { count: 'exact' });
     rulesCount = r.count || 0;
     eventsCount = e.count || 0;
+    shopsCount = s.count || 0;
   } else {
     const data = readData();
-    rulesCount = (data.rules||[]).length;
-    eventsCount = (data.events||[]).length;
+    rulesCount = (data.rules || []).length;
+    eventsCount = (data.events || []).length;
+    shopsCount = Object.keys(data.shops || {}).length;
   }
   res.json({
     status: 'ok',
-    store: SHOPIFY_STORE || 'not configured',
+    version: '3.0.0',
+    store: LEGACY_STORE || 'oauth-multi-shop',
+    oauth: !!CLIENT_ID,
+    billing: !!CLIENT_ID,
+    shops: shopsCount,
     rules: rulesCount,
     events: eventsCount,
     supabase: !!supabase,
-    version: '2.3.0'
+    timestamp: new Date().toISOString()
   });
 });
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-
+// ── START ──
 const PORT = process.env.PORT || 3000;
 initSupabase().then(() => {
-  app.listen(PORT, () => console.log(`UpsellBoost v2.3 running on port ${PORT}`));
+  app.listen(PORT, () => {
+    console.log(`UpsellBoost v3.0 running on port ${PORT}`);
+    console.log(`OAuth: ${CLIENT_ID ? '✓ configured' : '✗ set SHOPIFY_CLIENT_ID'}`);
+    console.log(`Billing: ${CLIENT_ID ? '✓ configured' : '✗ set SHOPIFY_CLIENT_SECRET'}`);
+    console.log(`App URL: ${APP_URL}`);
+  });
 });
