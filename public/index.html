@@ -428,63 +428,219 @@ let productsWithVariants = [];
 
 // ── TOUR ──
 const TOUR_STEPS = [
-  { emoji:'✨', bg:'linear-gradient(135deg,#0D0D0D,#1A1A1A)', border:'rgba(61,255,160,0.2)',
-    title:'Welcome to UpsellBoost!',
-    desc:'The smart upsell engine built for Indian Shopify merchants. Boost your average order value with intelligent, automated upsell offers — right in the cart and after checkout.',
-    tip:'Most merchants see 15–25% increase in AOV within the first week of using UpsellBoost.' },
-  { emoji:'🎯', bg:'linear-gradient(135deg,#0D2E1E,#0D4A2A)', border:'rgba(61,255,160,0.2)',
-    title:'Create Smart Rules',
-    desc:'Go to Dynamic Offers → Add rule. Create IF/THEN rules like: IF customer adds a T-shirt → THEN show matching accessories at 20% off. Rules are checked in order — first match wins.',
-    tip:'Start with an "Any order" rule to show upsells to everyone, then add specific rules for better targeting.' },
-  { emoji:'🛒', bg:'linear-gradient(135deg,#0D1A2E,#0D2A4A)', border:'rgba(59,130,246,0.2)',
-    title:'Carousel Upsells in Cart',
-    desc:'Each rule shows up to 3 upsell products as a beautiful swipeable carousel — appearing right in the cart drawer. Customers can add upsell items with one tap without leaving the cart.',
-    tip:'Enable the countdown timer in Settings to create urgency — "Offer expires in 10:00" increases conversions.' },
-  { emoji:'⚡', bg:'linear-gradient(135deg,#1A0D2E,#2A0D4A)', border:'rgba(139,92,246,0.2)',
-    title:'Low Stock Urgency',
-    desc:'Create "Low stock + variant" rules to automatically show urgency badges like "Only 3 left!" when a specific size or color is running low. Perfect for fashion brands.',
-    tip:'Set stock threshold to 5 units — triggers urgency without showing too early.' },
-  { emoji:'📊', bg:'linear-gradient(135deg,#2E1A0D,#4A2A0D)', border:'rgba(245,158,11,0.2)',
-    title:'Track Your Revenue',
-    desc:'Every accepted upsell is tracked in Analytics — see total upsell revenue, acceptance rate, and which offers perform best. Data updates in real time after every cart interaction.',
-    tip:'Check Analytics weekly to find your best-performing rules, then duplicate them and test variations!' }
+  {
+    title: 'Welcome to UpsellBoost!',
+    desc: 'The smart upsell engine built for Indian Shopify merchants. Boost your AOV with intelligent cart and post-purchase upsells.',
+    tip: 'Most merchants see 15–25% increase in AOV within the first week.',
+    screen: `
+      <div style="background:#0D0D0D;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;animation:fadeUp 0.6s ease forwards">
+          <div style="width:36px;height:36px;background:#0D0D0D;border:2px solid #3DFFA0;border-radius:8px;display:flex;align-items:center;justify-content:center">
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#3DFFA0;fill:none;stroke-width:2.5;stroke-linecap:round"><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/><line x1="4.22" y1="4.22" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.78" y2="19.78"/><line x1="19.78" y1="4.22" x2="16.24" y2="7.76"/><line x1="7.76" y1="16.24" x2="4.22" y2="19.78"/></svg>
+          </div>
+          <span style="font-size:20px;font-weight:700;color:white;letter-spacing:-0.5px">UpsellBoost</span>
+          <span style="font-size:10px;font-weight:600;background:rgba(61,255,160,0.15);color:#3DFFA0;padding:2px 7px;border-radius:99px;border:1px solid rgba(61,255,160,0.3)">v2 Dynamic</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:340px;animation:fadeUp 0.6s 0.2s ease both">
+          <div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.15);border-radius:10px;padding:12px">
+            <div style="font-size:10px;color:#6B7280;margin-bottom:4px">REVENUE ADDED</div>
+            <div style="font-size:20px;font-weight:700;color:#3DFFA0">₹47,832</div>
+          </div>
+          <div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.15);border-radius:10px;padding:12px">
+            <div style="font-size:10px;color:#6B7280;margin-bottom:4px">ACCEPTANCE RATE</div>
+            <div style="font-size:20px;font-weight:700;color:white">34%</div>
+          </div>
+          <div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.15);border-radius:10px;padding:12px">
+            <div style="font-size:10px;color:#6B7280;margin-bottom:4px">UPSELLS SHOWN</div>
+            <div style="font-size:20px;font-weight:700;color:white">1,284</div>
+          </div>
+          <div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.15);border-radius:10px;padding:12px">
+            <div style="font-size:10px;color:#6B7280;margin-bottom:4px">ACTIVE RULES</div>
+            <div style="font-size:20px;font-weight:700;color:white">5</div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    title: 'Create Smart IF/THEN Rules',
+    desc: 'Build rules like: IF customer adds a T-shirt → THEN show matching accessories at 20% off. First matching rule wins.',
+    tip: 'Start with "Any order" to show upsells to everyone, then get more specific.',
+    screen: `
+      <div style="background:#F4F5F7;width:100%;height:100%;padding:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:12px;animation:fadeUp 0.5s ease forwards">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:20px;height:20px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">1</div>
+            <span style="font-size:12px;font-weight:600">Rule 1</span>
+            <span style="margin-left:auto;font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 7px;border-radius:99px">Active</span>
+          </div>
+          <div style="font-size:11px;color:#64748B;margin-bottom:4px">IF Contains "T-shirt Blue"</div>
+          <div style="font-size:11px;color:#1DC974;font-weight:600">THEN → Tshirts black color +2 more at 20% off</div>
+        </div>
+        <div style="background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:12px;animation:fadeUp 0.5s 0.15s ease both">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="width:20px;height:20px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">2</div>
+            <span style="font-size:12px;font-weight:600">Rule 2</span>
+            <span style="margin-left:auto;font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 7px;border-radius:99px">Active</span>
+          </div>
+          <div style="font-size:11px;color:#64748B;margin-bottom:4px">IF Order above ₹1,000</div>
+          <div style="font-size:11px;color:#1DC974;font-weight:600">THEN → Gift Card at 15% off</div>
+        </div>
+        <div style="background:white;border-radius:10px;border:1.5px dashed #E2E8F0;padding:10px;text-align:center;animation:fadeUp 0.5s 0.3s ease both">
+          <span style="font-size:12px;color:#94A3B8">+ Add another rule</span>
+        </div>
+      </div>`
+  },
+  {
+    title: 'Carousel Upsells in Cart',
+    desc: 'Each rule shows up to 3 products as a swipeable carousel — right in the cart drawer. Customers add with one tap.',
+    tip: 'Enable the countdown timer in Settings to create urgency and boost conversions.',
+    screen: `
+      <div style="background:#F4F5F7;width:100%;height:100%;display:flex;align-items:center;justify-content:center">
+        <div style="background:white;border-radius:12px;width:260px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden">
+          <div style="background:#0D0D0D;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;font-weight:600;color:white">Your cart</span>
+            <span style="font-size:11px;color:#6B7280">2 items</span>
+          </div>
+          <div style="padding:10px 14px;border-bottom:1px solid #F1F5F9">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="width:32px;height:32px;background:#E8FFF4;border-radius:6px"></div>
+              <div><div style="font-size:11px;font-weight:600">T-shirt Blue color</div><div style="font-size:10px;color:#94A3B8">₹499</div></div>
+            </div>
+            <div style="font-size:11px;font-weight:700;color:#1DC974;text-align:right">₹499</div>
+          </div>
+          <div style="border:2px solid #3DFFA0;border-radius:10px;margin:8px;padding:10px;animation:pulse 2s infinite">
+            <div style="background:#FEE2E2;border-radius:6px;padding:4px 8px;text-align:center;margin-bottom:8px">
+              <span style="font-size:10px;font-weight:700;color:#DC2626">Offer expires in <span style="font-family:monospace">09:47</span></span>
+            </div>
+            <div style="font-size:10px;font-weight:700;color:#0D7A4E;margin-bottom:8px">CUSTOMERS ALSO BUY</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <div style="width:40px;height:40px;background:#E8FFF4;border-radius:6px;flex-shrink:0"></div>
+              <div style="flex:1">
+                <div style="font-size:11px;font-weight:600">Tshirts black color</div>
+                <div style="display:flex;align-items:center;gap:4px">
+                  <span style="font-size:11px;font-weight:700;color:#1DC974">₹199</span>
+                  <span style="font-size:10px;color:#94A3B8;text-decoration:line-through">₹249</span>
+                  <span style="font-size:9px;background:#3DFFA0;color:#0D0D0D;padding:0 4px;border-radius:3px;font-weight:700">20% OFF</span>
+                </div>
+              </div>
+            </div>
+            <button style="width:100%;background:#3DFFA0;color:#0D0D0D;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700;cursor:pointer">+ Add to cart</button>
+            <div style="display:flex;justify-content:center;gap:4px;margin-top:6px">
+              <div style="width:6px;height:6px;border-radius:50%;background:#3DFFA0"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:#D1FAE5"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:#D1FAE5"></div>
+            </div>
+          </div>
+          <div style="padding:8px 14px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#64748B">Subtotal</span>
+            <span style="font-size:12px;font-weight:700">₹499</span>
+          </div>
+          <div style="margin:0 8px 8px;background:#0D0D0D;border-radius:8px;padding:10px;text-align:center">
+            <span style="font-size:12px;font-weight:700;color:white">Check out</span>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    title: 'Low Stock Urgency Rules',
+    desc: 'Set rules for specific variants — when S-size stock drops below 5, automatically show urgency badges like "Only 3 left!"',
+    tip: 'Set threshold to 5 units — triggers urgency without showing too early.',
+    screen: `
+      <div style="background:#F4F5F7;width:100%;height:100%;padding:14px;display:flex;flex-direction:column;gap:8px">
+        <div style="background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:12px;animation:fadeUp 0.5s ease forwards">
+          <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">IF — Low stock + variant in cart</div>
+          <div style="background:#FFFBEB;border-radius:8px;padding:10px;border:1px solid #FDE68A">
+            <div style="font-size:10px;font-weight:700;color:#92400E;margin-bottom:6px">VARIANT TRIGGER</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+              <div style="background:white;border-radius:6px;padding:6px;border:1px solid #FDE68A">
+                <div style="font-size:9px;color:#92400E;margin-bottom:2px">Product</div>
+                <div style="font-size:10px;font-weight:600;color:#0D0D0D">T-shirt Blue</div>
+              </div>
+              <div style="background:white;border-radius:6px;padding:6px;border:1px solid #FDE68A">
+                <div style="font-size:9px;color:#92400E;margin-bottom:2px">Variant</div>
+                <div style="font-size:10px;font-weight:600;color:#0D0D0D">S size</div>
+              </div>
+              <div style="background:white;border-radius:6px;padding:6px;border:1px solid #FDE68A">
+                <div style="font-size:9px;color:#92400E;margin-bottom:2px">Stock ≤</div>
+                <div style="font-size:10px;font-weight:600;color:#DC2626">5 units</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background:white;border-radius:10px;border:1.5px solid #3DFFA0;padding:12px;animation:fadeUp 0.5s 0.2s ease both">
+          <div style="font-size:10px;font-weight:700;color:#0D7A4E;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">RESULT IN CART</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:36px;height:36px;background:#E8FFF4;border-radius:6px;flex-shrink:0"></div>
+            <div>
+              <div style="background:#FEE2E2;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:3px"><span style="font-size:10px;font-weight:700;color:#DC2626">🔥 Only 3 left!</span></div>
+              <div style="font-size:11px;font-weight:600">T-shirt Blue — S size</div>
+              <div style="font-size:10px;color:#1DC974;font-weight:600">₹399 — 20% OFF</div>
+            </div>
+          </div>
+        </div>
+      </div>`
+  },
+  {
+    title: 'Track Revenue in Analytics',
+    desc: 'Every accepted upsell is tracked — total revenue, acceptance rate, best-performing rules. Data updates in real time.',
+    tip: 'Check Analytics weekly, find best rules, duplicate and test variations!',
+    screen: `
+      <div style="background:#F4F5F7;width:100%;height:100%;padding:12px;display:flex;flex-direction:column;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;animation:fadeUp 0.5s ease forwards">
+          <div style="background:white;border-radius:8px;padding:10px;border:1px solid #E2E8F0">
+            <div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Revenue</div>
+            <div style="font-size:16px;font-weight:700;color:#1DC974">₹47,832</div>
+          </div>
+          <div style="background:white;border-radius:8px;padding:10px;border:1px solid #E2E8F0">
+            <div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Acceptance</div>
+            <div style="font-size:16px;font-weight:700">34%</div>
+          </div>
+          <div style="background:white;border-radius:8px;padding:10px;border:1px solid #E2E8F0">
+            <div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Avg value</div>
+            <div style="font-size:16px;font-weight:700">₹372</div>
+          </div>
+        </div>
+        <div style="background:white;border-radius:8px;padding:10px;border:1px solid #E2E8F0;animation:fadeUp 0.5s 0.15s ease both">
+          <div style="font-size:10px;font-weight:600;margin-bottom:8px">Recent events</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #F1F5F9">
+              <span style="font-size:10px;color:#94A3B8;font-family:monospace">#4821</span>
+              <span style="font-size:10px;flex:1">Tshirts black color</span>
+              <span style="font-size:9px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Accepted</span>
+              <span style="font-size:10px;color:#1DC974;font-weight:600">+₹199</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #F1F5F9">
+              <span style="font-size:10px;color:#94A3B8;font-family:monospace">#4820</span>
+              <span style="font-size:10px;flex:1">Gift Card</span>
+              <span style="font-size:9px;font-weight:600;background:#F1F5F9;color:#64748B;padding:1px 6px;border-radius:99px">Declined</span>
+              <span style="font-size:10px;color:#94A3B8">—</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:5px 0">
+              <span style="font-size:10px;color:#94A3B8;font-family:monospace">#4819</span>
+              <span style="font-size:10px;flex:1">Snowboard Hydrogen</span>
+              <span style="font-size:9px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Accepted</span>
+              <span style="font-size:10px;color:#1DC974;font-weight:600">+₹629</span>
+            </div>
+          </div>
+        </div>
+      </div>`
+  }
 ];
 let tourStep = 0;
 
-function startTour() {
-  tourStep = 0;
-  renderTourStep();
-  document.getElementById('tour-overlay').style.display = 'flex';
-}
+function startTour() { tourStep=0; renderTourStep(); document.getElementById('tour-overlay').style.display='flex'; }
 
 function renderTourStep() {
   const step = TOUR_STEPS[tourStep];
   const visual = document.getElementById('tour-visual');
-  visual.style.background = step.bg;
-  visual.style.border = 'none';
-  document.getElementById('tour-emoji').textContent = step.emoji;
+  visual.style.background = '#F4F5F7';
+  visual.innerHTML = `<style>@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(61,255,160,0.3)}50%{box-shadow:0 0 0 6px rgba(61,255,160,0)}}</style><div style="width:100%;height:100%;overflow:hidden">${step.screen}</div>`;
   document.getElementById('tour-title').textContent = step.title;
   document.getElementById('tour-desc').textContent = step.desc;
   document.getElementById('tour-tip').innerHTML = '<span style="font-size:16px;flex-shrink:0">💡</span><span>' + step.tip + '</span>';
-  const dots = document.getElementById('tour-dots');
-  dots.innerHTML = TOUR_STEPS.map((_,i) => `<div class="tour-dot${i===tourStep?' active':''}"></div>`).join('');
-  const backBtn = document.getElementById('tour-back');
-  const nextBtn = document.getElementById('tour-next');
-  backBtn.style.display = tourStep === 0 ? 'none' : 'block';
-  nextBtn.textContent = tourStep === TOUR_STEPS.length - 1 ? '🚀 Get started!' : 'Next →';
-}
-
-function tourNext() {
-  if (tourStep < TOUR_STEPS.length - 1) { tourStep++; renderTourStep(); }
-  else { skipTour(); showPage(null,'offers'); setTimeout(()=>showToast('Create your first rule to start upselling! 🎯'),400); }
-}
-
-function tourBack() { if(tourStep>0){tourStep--;renderTourStep();} }
-function skipTour() { document.getElementById('tour-overlay').style.display='none'; }
-function neverShowTour() {
-  localStorage.setItem('ub2_tour_never','true');
-  document.getElementById('tour-overlay').style.display='none';
-  showToast('Tour hidden — click 🎯 Tour in the nav to replay anytime');
+  document.getElementById('tour-dots').innerHTML = TOUR_STEPS.map((_,i) => `<div class="tour-dot${i===tourStep?' active':''}"></div>`).join('');
+  document.getElementById('tour-back').style.display = tourStep===0?'none':'block';
+  document.getElementById('tour-next').textContent = tourStep===TOUR_STEPS.length-1?'🚀 Get started!':'Next →';
 }
 
 // ── NAV ──
