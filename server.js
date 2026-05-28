@@ -186,16 +186,25 @@ app.get('/auth/callback', async (req, res) => {
 // Register order webhook for newly installed shop
 async function registerWebhooks(shop, token) {
   try {
-    await fetch(`https://${shop}/admin/api/${API_VERSION}/webhooks.json`, {
-      method: 'POST',
-      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webhook: {
-        topic: 'orders/create',
-        address: `${APP_URL}/webhooks/orders/create`,
-        format: 'json'
-      }})
-    });
-    console.log(`✓ Webhook registered for ${shop}`);
+    const webhookTopics = [
+      'orders/create',
+      'app/uninstalled',
+      'customers/redact',
+      'shop/redact',
+      'customers/data_request'
+    ];
+    for (const topic of webhookTopics) {
+      await fetch(`https://${shop}/admin/api/${API_VERSION}/webhooks.json`, {
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook: {
+          topic,
+          address: `${APP_URL}/webhooks/${topic.replace('/', '/')}`,
+          format: 'json'
+        }})
+      });
+    }
+    console.log(`✓ All webhooks registered for ${shop}`);
   } catch (e) {
     console.log('Webhook registration failed:', e.message);
   }
@@ -669,6 +678,45 @@ app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), a
       writeData(data);
     }
   } catch (e) { console.error('Webhook error:', e.message); }
+});
+
+
+// ── GDPR WEBHOOKS (required for Shopify App Store) ──
+
+// Customers request their data be deleted
+app.post('/webhooks/customers/redact', express.raw({ type: 'application/json' }), async (req, res) => {
+  res.sendStatus(200);
+  try {
+    const body = JSON.parse(req.body);
+    const shop = req.headers['x-shopify-shop-domain'];
+    console.log(`GDPR customers/redact: shop=${shop}, customer=${body.customer?.id}`);
+    // We don't store personal customer data — nothing to delete
+    // Log for compliance record only
+  } catch (e) { console.error('GDPR redact error:', e.message); }
+});
+
+// Shop owner requests all their data be deleted (after uninstall)
+app.post('/webhooks/shop/redact', express.raw({ type: 'application/json' }), async (req, res) => {
+  res.sendStatus(200);
+  try {
+    const body = JSON.parse(req.body);
+    const shop = body.shop_domain || req.headers['x-shopify-shop-domain'];
+    console.log(`GDPR shop/redact: ${shop}`);
+    if (supabase && shop) {
+      await supabase.from('shops').delete().eq('shop_domain', shop);
+      await supabase.from('rules').delete().eq('shop_domain', shop);
+      await supabase.from('events').delete().eq('shop_domain', shop);
+      await supabase.from('settings').delete().eq('shop_domain', shop);
+      console.log(`✓ All data deleted for ${shop}`);
+    }
+  } catch (e) { console.error('GDPR shop redact error:', e.message); }
+});
+
+// Customers request to see their data
+app.post('/webhooks/customers/data_request', express.raw({ type: 'application/json' }), async (req, res) => {
+  res.sendStatus(200);
+  // We don't store personal customer data (no names, emails, addresses)
+  console.log('GDPR data_request received — no personal data stored');
 });
 
 // Health check
