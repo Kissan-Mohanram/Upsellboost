@@ -577,6 +577,16 @@ let S = { events:[], rules:[], settings:JSON.parse(localStorage.getItem('ub2_set
 let products = [];
 let productsWithVariants = [];
 
+// Detect shop from Shopify embedded URL params
+function getShop(){
+  const p = new URLSearchParams(window.location.search);
+  return p.get('shop') || p.get('shopify-domain') || localStorage.getItem('ub2_shop') || '';
+}
+function apiUrl(path){
+  const shop = getShop();
+  return shop ? path + (path.includes('?') ? '&' : '?') + 'shop=' + encodeURIComponent(shop) : path;
+}
+
 // ── TOUR ──
 const TOUR_STEPS=[
   {title:'Welcome to UpsellBoost!',desc:'The smart upsell engine built for Indian Shopify merchants. Boost your AOV with intelligent cart and post-purchase upsells.',tip:'Most merchants see 15-25% increase in AOV within the first week.',
@@ -713,7 +723,7 @@ async function saveRules(){
     if(productSel&&productSel.value){ rules.push({id:String(i+1),condition:condType,condition_val:finalCondVal,condition_label:condTypeRaw.replace(/_/g,' '),product_id:productSel.value,product_id2:document.getElementById('rp2-'+n)?.value||null,product_id3:document.getElementById('rp3-'+n)?.value||null,product_name:productSel.options[productSel.selectedIndex]?.text||'Product',discount:parseInt(discount)}); }
   });
   S.rules=rules; localStorage.setItem('ub2_rules',JSON.stringify(rules)); document.getElementById('offer-count').textContent=rules.length;
-  try{ const r=await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules})}); const d=await r.json(); if(d.success) showToast('Rules saved & activated! ?'); else showToast('Saved locally — check server'); } catch(e){ showToast('Saved locally ?'); }
+  try{ const r=await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules, shop: getShop()})}); const d=await r.json(); if(d.success) showToast('Rules saved & activated! ?'); else showToast('Saved locally — check server'); } catch(e){ showToast('Saved locally ?'); }
 }
 
 function previewRules(){ const t=document.querySelector('.rule-summary-title')?.textContent||''; const s=document.querySelector('.rule-summary-sub')?.textContent||''; showToast(t&&s?t+' '+s:'No rules yet — add one first!'); }
@@ -730,8 +740,8 @@ function saveWA(){ showToast('WhatsApp settings saved ?'); }
 async function saveSettings(){
   const tt=document.getElementById('timer-toggle'), tm=document.getElementById('timer-minutes');
   const settings={timer_enabled:tt?tt.classList.contains('on'):false,timer_minutes:tm?parseInt(tm.value)||10:10};
-  S.settings=settings; localStorage.setItem('ub2_settings',JSON.stringify(settings));
-  try{ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(settings)}); showToast('Settings saved ?'); } catch(e){ showToast('Settings saved locally ✓'); }
+  S.settings=settings; localStorage.setItem('ub2_settings',JSON.stringify({...settings, shop: getShop()}));
+  try{ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...settings, shop: getShop()})}); showToast('Settings saved ?'); } catch(e){ showToast('Settings saved locally ✓'); }
 }
 
 // ── PRICING ──
@@ -791,28 +801,28 @@ function joinAffiliate(){
 
 // ── DATA LOADERS ──
 async function loadProducts(){
-  try{ const r=await fetch('/api/products'); if(!r.ok) throw new Error(); const d=await r.json(); products=d.products||[]; document.querySelectorAll('select.rule-product,#default-product').forEach(s=>{const cur=s.value;s.innerHTML='<option value="">Select product...</option>'+products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');if(cur)s.value=cur;}); } catch(e){ products=[{id:'1',title:'Sample A'},{id:'2',title:'Sample B'}]; }
+  try{ const r=await fetch(apiUrl('/api/products')); if(!r.ok) throw new Error(); const d=await r.json(); products=d.products||[]; document.querySelectorAll('select.rule-product,#default-product').forEach(s=>{const cur=s.value;s.innerHTML='<option value="">Select product...</option>'+products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');if(cur)s.value=cur;}); } catch(e){ products=[{id:'1',title:'Sample A'},{id:'2',title:'Sample B'}]; }
 }
 
 async function loadProductsWithVariants(){
-  try{ const r=await fetch('/api/products-with-variants'); if(r.ok){const d=await r.json();productsWithVariants=d.products||[];} } catch(e){}
+  try{ const r=await fetch(apiUrl('/api/products-with-variants')); if(r.ok){const d=await r.json();productsWithVariants=d.products||[];} } catch(e){}
 }
 
 async function loadStore(){
-  try{ const r=await fetch('/api/store'); if(r.ok){const d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store';} } catch(e){ document.getElementById('store-domain').textContent='dev store'; }
+  try{ const r=await fetch(apiUrl('/api/store')); if(r.ok){const d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store'; if(d.domain) localStorage.setItem('ub2_shop', d.domain);} } catch(e){ document.getElementById('store-domain').textContent='dev store'; }
 }
 
 async function loadEvents(){
-  try{ const r=await fetch('/api/events'); if(r.ok){const d=await r.json();S.events=d.events||[];} } catch(e){}
+  try{ const r=await fetch(apiUrl('/api/events')); if(r.ok){const d=await r.json();S.events=d.events||[];} } catch(e){}
 }
 
 async function loadSettings(){
-  try{ const r=await fetch('/api/settings'); if(r.ok){ const d=await r.json(); const s=d.settings||{}; S.settings=s; const tt=document.getElementById('timer-toggle'), tm=document.getElementById('timer-minutes'); if(tt&&s.timer_enabled) tt.classList.add('on'); if(tm&&s.timer_minutes) tm.value=s.timer_minutes; } } catch(e){}
+  try{ const r=await fetch(apiUrl('/api/settings')); if(r.ok){ const d=await r.json(); const s=d.settings||{}; S.settings=s; const tt=document.getElementById('timer-toggle'), tm=document.getElementById('timer-minutes'); if(tt&&s.timer_enabled) tt.classList.add('on'); if(tm&&s.timer_minutes) tm.value=s.timer_minutes; } } catch(e){}
 }
 
 async function loadRules(){
   try{
-    const r=await fetch('/api/rules');
+    const r=await fetch(apiUrl('/api/rules'));
     if(r.ok){
       const d=await r.json(); S.rules=d.rules||[]; document.getElementById('offer-count').textContent=S.rules.length;
       S.rules.forEach(rule=>{
