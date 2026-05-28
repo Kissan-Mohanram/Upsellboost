@@ -63,13 +63,20 @@ async function initSupabase() {
 // ── SHOP HELPERS ──
 // Get access token for a shop (supports both OAuth multi-shop + legacy single-shop)
 async function getShopToken(shop) {
-  if (!shop && LEGACY_TOKEN) return LEGACY_TOKEN; // legacy fallback
-  if (supabase) {
-    const { data } = await supabase.from('shops').select('access_token').eq('shop_domain', shop).single();
-    return data?.access_token || LEGACY_TOKEN;
+  // Always try OAuth token first, fall back to legacy SHOPIFY_TOKEN
+  const shopDomain = shop || LEGACY_STORE;
+  if (supabase && shopDomain) {
+    try {
+      const { data } = await supabase.from('shops').select('access_token').eq('shop_domain', shopDomain).single();
+      if (data?.access_token) return data.access_token;
+    } catch(e) {}
+  } else {
+    const fileData = readData();
+    const token = fileData.shops?.[shopDomain]?.access_token;
+    if (token) return token;
   }
-  const data = readData();
-  return data.shops?.[shop]?.access_token || LEGACY_TOKEN;
+  // Fall back to legacy token (always worked before)
+  return LEGACY_TOKEN;
 }
 
 async function getShopPlan(shop) {
@@ -717,6 +724,40 @@ app.post('/webhooks/customers/data_request', express.raw({ type: 'application/js
   res.sendStatus(200);
   // We don't store personal customer data (no names, emails, addresses)
   console.log('GDPR data_request received — no personal data stored');
+});
+
+
+// DEBUG endpoint - remove before App Store submission
+app.get('/api/debug-products', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE;
+  try {
+    const token = await getShopToken(shop);
+    const store = shop || LEGACY_STORE;
+    
+    // Show what token we're using
+    const tokenPreview = token ? token.substring(0, 8) + '...' : 'NO TOKEN';
+    
+    // Try Shopify API directly
+    const url = `https://${store}/admin/api/${API_VERSION}/products.json?limit=3&status=active`;
+    const response = await fetch(url, {
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
+    });
+    
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { data = { raw: text.substring(0, 500) }; }
+    
+    res.json({
+      shop,
+      store,
+      token_preview: tokenPreview,
+      token_type: token?.startsWith('shpua_') ? 'OAuth' : token?.startsWith('shpat_') ? 'Private' : 'Unknown',
+      shopify_status: response.status,
+      shopify_response: data
+    });
+  } catch(e) {
+    res.json({ error: e.message, shop, store: shop || LEGACY_STORE });
+  }
 });
 
 // Health check
