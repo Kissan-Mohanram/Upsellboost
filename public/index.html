@@ -1072,29 +1072,49 @@ async function saveRules() {
       cv = document.getElementById('cat-' + n) ? document.getElementById('cat-' + n).value : null;
     }
 
-    if (ps && ps.value) {
+    // For OOS rules, upsell product is optional (popup shows whatever products are in rule)
+    // For all other rules, product 1 is required
+    var hasProduct = (ps && ps.value) || ct === 'out_of_stock';
+
+    console.log('Rule', n, '| condition:', ct, '| product:', ps ? ps.value : 'none', '| hasProduct:', hasProduct);
+
+    if (hasProduct) {
       rules.push({
         id: String(i + 1),
         condition: ct,
         condition_val: cv,
         condition_label: ctRaw.replace(/_/g, ' '),
-        product_id: ps.value,
+        product_id: ps && ps.value ? ps.value : null,
         product_id2: document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value || null : null,
         product_id3: document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value || null : null,
-        product_name: ps.options[ps.selectedIndex].text,
+        product_name: ps && ps.value ? ps.options[ps.selectedIndex].text : 'OOS redirect',
         discount: parseInt(disc),
         display_location: loc
       });
+    } else {
+      console.warn('Rule', n, 'skipped - no product selected');
     }
   });
+
+  console.log('Saving', rules.length, 'rules:', rules);
   S.rules = rules;
   document.getElementById('offer-count').textContent = rules.length;
+
+  if (rules.length === 0) {
+    showToast('Please select at least one product to upsell');
+    return;
+  }
+
   try {
     var r = await fetch(apiUrl('/api/rules'), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rules: rules, shop: getShop()})});
     var d = await r.json();
+    console.log('Save response:', d);
     if (d.success) showToast('Rules saved & activated!');
-    else showToast('Saved -- check server');
-  } catch(e) { showToast('Saved locally'); }
+    else showToast('Error: ' + (d.error || 'check server'));
+  } catch(e) {
+    console.error('Save error:', e);
+    showToast('Network error - check connection');
+  }
 }
 
 
