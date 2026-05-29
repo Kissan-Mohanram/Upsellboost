@@ -1255,18 +1255,28 @@ async function loadRules() {
         addRule();
         var n = ruleCount;
         setTimeout(function() {
-          // Re-populate product dropdowns in this rule with current products
-          var po = '<option value="">Select product...</option>';
+          // Re-populate product dropdowns with loaded products
+          var po = '';
           products.forEach(function(p){ po += '<option value="' + p.id + '">' + p.title + '</option>'; });
-          ['rp-','rp2-','rp3-','trigger-product-','oos-product-','ds-product-','ls-product-'].forEach(function(prefix) {
+          var pBase = '<option value="">Select product...</option>' + po;
+          var pNone = '<option value="">None</option>' + po;
+
+          // Map each dropdown to the correct saved value from rule data
+          var dropdownMap = {
+            'rp-': rule.product_id || '',
+            'rp2-': rule.product_id2 || '',
+            'rp3-': rule.product_id3 || '',
+            'trigger-product-': (rule.condition === 'contains_product') ? (rule.condition_val || '') : '',
+            'oos-product-': (rule.condition === 'out_of_stock') ? (rule.condition_val || '') : '',
+            'ds-product-': (rule.condition === 'deadstock') ? ((rule.condition_val || '').split(':')[0] || '') : '',
+            'ls-product-': (rule.condition === 'low_stock') ? ((rule.condition_val || '').split(':')[0] || '') : ''
+          };
+
+          Object.keys(dropdownMap).forEach(function(prefix) {
             var el = document.getElementById(prefix + n);
-            if (el) {
-              var cur = el.value;
-              el.innerHTML = (prefix === 'rp2-' || prefix === 'rp3-')
-                ? '<option value="">None</option>' + po
-                : '<option value="">Select product...</option>' + po.replace('<option value="">Select product...</option>','');
-              if (cur) el.value = cur;
-            }
+            if (!el) return;
+            el.innerHTML = (prefix === 'rp2-' || prefix === 'rp3-') ? pNone : pBase;
+            if (dropdownMap[prefix]) el.value = dropdownMap[prefix];
           });
           // Set condition
           var cm = {'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};
