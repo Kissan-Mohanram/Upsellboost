@@ -447,32 +447,26 @@ app.post('/api/offer', async (req, res) => {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
       case 'out_of_stock':
-        // Triggers when customer is on a sold-out product page
-        // condition_val = product_id of the out-of-stock product
-        // req.body.trigger === 'out_of_stock' when called from OOS popup JS
-        // req.body.oos_product_id = current product page ID
+        // ONLY triggers when explicitly called from OOS product page
+        // Never matches regular cart upsell requests
         try {
           const reqTrigger = req.body.trigger;
           const oosProductId = req.body.oos_product_id;
           if (reqTrigger === 'out_of_stock') {
-            // Direct OOS trigger from product page
+            // Match if no specific product set OR if product matches
             if (!rule.condition_val || String(rule.condition_val) === String(oosProductId)) {
               matchedRule = rule;
             }
-          } else if (rule.condition_val) {
-            // Fallback: check if OOS product is in cart items
-            const isInCart = cartIds.includes(String(rule.condition_val));
-            if (isInCart) matchedRule = rule;
-          } else {
-            // No specific product set — match all OOS triggers
-            matchedRule = rule;
           }
+          // If not an OOS trigger request, skip this rule entirely
         } catch(e) { console.error('OOS match error:', e.message); }
         break;
       case 'deadstock':
-        // Triggers always - pushes slow-moving product to everyone in cart
-        // condition_val = "product_id:days_threshold"
-        matchedRule = rule;
+        // Pushes slow-moving product to everyone in cart
+        // Does NOT trigger on OOS product page requests
+        if (req.body.trigger !== 'out_of_stock') {
+          matchedRule = rule;
+        }
         break;
       case 'order_value':
         if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule;
@@ -556,32 +550,26 @@ app.post('/api/offer-multi', async (req, res) => {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
       case 'out_of_stock':
-        // Triggers when customer is on a sold-out product page
-        // condition_val = product_id of the out-of-stock product
-        // req.body.trigger === 'out_of_stock' when called from OOS popup JS
-        // req.body.oos_product_id = current product page ID
+        // ONLY triggers when explicitly called from OOS product page
+        // Never matches regular cart upsell requests
         try {
           const reqTrigger = req.body.trigger;
           const oosProductId = req.body.oos_product_id;
           if (reqTrigger === 'out_of_stock') {
-            // Direct OOS trigger from product page
+            // Match if no specific product set OR if product matches
             if (!rule.condition_val || String(rule.condition_val) === String(oosProductId)) {
               matchedRule = rule;
             }
-          } else if (rule.condition_val) {
-            // Fallback: check if OOS product is in cart items
-            const isInCart = cartIds.includes(String(rule.condition_val));
-            if (isInCart) matchedRule = rule;
-          } else {
-            // No specific product set — match all OOS triggers
-            matchedRule = rule;
           }
+          // If not an OOS trigger request, skip this rule entirely
         } catch(e) { console.error('OOS match error:', e.message); }
         break;
       case 'deadstock':
-        // Triggers always - pushes slow-moving product to everyone in cart
-        // condition_val = "product_id:days_threshold"
-        matchedRule = rule;
+        // Pushes slow-moving product to everyone in cart
+        // Does NOT trigger on OOS product page requests
+        if (req.body.trigger !== 'out_of_stock') {
+          matchedRule = rule;
+        }
         break;
       case 'order_value':
         if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
