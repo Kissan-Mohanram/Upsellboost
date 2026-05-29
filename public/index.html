@@ -570,309 +570,499 @@ tr:last-child td{border-bottom:none}
 <div class="toast" id="toast"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="toast-msg"></span></div>
 
 <script>
-let S = { events:[], rules:[], settings:JSON.parse(localStorage.getItem('ub2_settings')||'{}') };
-let products = [];
-let productsWithVariants = [];
 
-// Detect shop from Shopify embedded URL params
-function getShop(){
-  const p = new URLSearchParams(window.location.search);
+var S = { events:[], rules:[], settings:{} };
+var products = [];
+var productsWithVariants = [];
+var ruleCount = 0;
+var tourStep = 0;
+var currentBilling = 'monthly';
+var PRICES = { free:0, basic:9.99, pro:24.99, enterprise:59.99 };
+
+// Get shop from URL or localStorage
+function getShop() {
+  var p = new URLSearchParams(window.location.search);
   return p.get('shop') || p.get('shopify-domain') || localStorage.getItem('ub2_shop') || '';
 }
-function apiUrl(path){
-  const shop = getShop();
-  return shop ? path + (path.includes('?') ? '&' : '?') + 'shop=' + encodeURIComponent(shop) : path;
+
+// Build API URL with shop param
+function apiUrl(path) {
+  var shop = getShop();
+  return shop ? path + (path.indexOf('?') >= 0 ? '&' : '?') + 'shop=' + encodeURIComponent(shop) : path;
 }
 
-// Detect currency symbol from store settings or browser locale
-function getCurrencySymbol(){
-  const saved = localStorage.getItem('ub2_currency');
-  if(saved) return saved;
-  // Default to $ until store currency is loaded
-  return '$';
+// Currency symbol detection
+function getCurrencySymbol() {
+  return localStorage.getItem('ub2_currency') || '$';
 }
-function setCurrencySymbol(sym){
-  localStorage.setItem('ub2_currency', sym);
-}
-// Map ISO currency codes to symbols
-function currencySymbol(code){
-  const map = {
-    'INR':'₹','USD':'$','EUR':'€','GBP':'£','AUD':'A$','CAD':'C$',
-    'SGD':'S$','AED':'AED ','MYR':'RM','THB':'฿','JPY':'¥','CNY':'¥',
-    'BRL':'R$','MXN':'MX$','ZAR':'R','SEK':'kr','NOK':'kr','DKK':'kr'
-  };
-  return map[code] || (code ? code+' ' : '$');
+function saveCurrencySymbol(code) {
+  var map = {'INR':'Rs.','USD':'$','EUR':'EUR ','GBP':'GBP ','AUD':'A$','CAD':'C$','SGD':'S$','AED':'AED ','MYR':'RM ','JPY':'JPY ','BRL':'R$','ZAR':'R '};
+  localStorage.setItem('ub2_currency', map[code] || '$');
 }
 
-// -- TOUR --
-const TOUR_STEPS=[
-  {title:'Welcome to UpsellBoost!',desc:'The smart upsell engine built for Indian Shopify merchants. Boost your AOV with intelligent cart and post-purchase upsells.',tip:'Most merchants see 15-25% increase in AOV within the first week.',
-   screen:'<style>@keyframes ubFU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}</style><div style="width:100%;height:100%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:16px"><div style="display:flex;align-items:center;gap:10px;animation:ubFU .5s ease forwards"><div style="width:28px;height:28px;background:#0D0D0D;border:2px solid #3DFFA0;border-radius:7px;display:flex;align-items:center;justify-content:center"><svg viewBox=\"0 0 24 24\" style=\"width:14px;height:14px;stroke:#3DFFA0;fill:none;stroke-width:2.5\"><line x1=\"12\" y1=\"2\" x2=\"12\" y2=\"7\"/><line x1=\"12\" y1=\"17\" x2=\"12\" y2=\"22\"/><line x1=\"2\" y1=\"12\" x2=\"7\" y2=\"12\"/><line x1=\"17\" y1=\"12\" x2=\"22\" y2=\"12\"/></svg></div><span style=\"font-size:16px;font-weight:700;color:white\">UpsellBoost</span><span style=\"font-size:9px;font-weight:600;background:rgba(61,255,160,0.15);color:#3DFFA0;padding:2px 6px;border-radius:99px\">v2 Dynamic</span></div><div style=\"display:grid;grid-template-columns:1fr 1fr;gap:8px;width:300px;animation:ubFU .5s .15s ease both\"><div style=\"background:#1A1A1A;border:1px solid rgba(61,255,160,0.2);border-radius:10px;padding:11px\"><div style=\"font-size:9px;color:#6B7280;margin-bottom:3px;text-transform:uppercase\">Revenue Added</div><div style=\"font-size:20px;font-weight:800;color:#3DFFA0\">&#8377;47,832</div></div><div style=\"background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:11px\"><div style=\"font-size:9px;color:#6B7280;margin-bottom:3px;text-transform:uppercase\">Acceptance Rate</div><div style=\"font-size:20px;font-weight:800;color:white\">34%</div></div><div style=\"background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:11px\"><div style=\"font-size:9px;color:#6B7280;margin-bottom:3px;text-transform:uppercase\">Upsells Shown</div><div style=\"font-size:20px;font-weight:800;color:white\">1,284</div></div><div style=\"background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:11px\"><div style=\"font-size:9px;color:#6B7280;margin-bottom:3px;text-transform:uppercase\">Active Rules</div><div style=\"font-size:20px;font-weight:800;color:white\">5</div></div></div></div>'},
-  {title:'Create Smart IF/THEN Rules',desc:'Build rules like: IF customer adds a T-shirt, THEN show matching accessories at 20% off. First matching rule wins.',tip:'Start with "Any order" to show upsells to everyone, then add specific rules.',
-   screen:'<style>@keyframes ubFU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}</style><div style=\"width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:7px\"><div style=\"font-size:11px;font-weight:700;color:#1A202C;margin-bottom:2px\">Dynamic Offer Engine</div><div style=\"background:white;border-radius:10px;border:2px solid #3DFFA0;padding:10px;animation:ubFU .4s ease forwards\"><div style=\"display:flex;align-items:center;gap:8px;margin-bottom:4px\"><div style=\"width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0\">1</div><span style=\"font-size:12px;font-weight:600;flex:1\">Rule 1</span><span style=\"font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px\">Active</span></div><div style=\"font-size:11px;color:#64748B;margin-bottom:2px\">IF Contains T-shirt Blue color</div><div style=\"font-size:11px;color:#1DC974;font-weight:600\">THEN &#8594; Tshirts black +2 more at 20% off</div></div><div style=\"background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:10px;animation:ubFU .4s .1s ease both\"><div style=\"display:flex;align-items:center;gap:8px;margin-bottom:4px\"><div style=\"width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0\">2</div><span style=\"font-size:12px;font-weight:600;flex:1\">Rule 2</span><span style=\"font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px\">Active</span></div><div style=\"font-size:11px;color:#64748B;margin-bottom:2px\">IF Order above &#8377;1,000</div><div style=\"font-size:11px;color:#1DC974;font-weight:600\">THEN &#8594; Gift Card at 15% off</div></div><div style=\"background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:10px;animation:ubFU .4s .2s ease both\"><div style=\"display:flex;align-items:center;gap:8px;margin-bottom:4px\"><div style=\"width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0\">3</div><span style=\"font-size:12px;font-weight:600;flex:1\">Rule 3</span><span style=\"font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px\">Active</span></div><div style=\"font-size:11px;color:#64748B;margin-bottom:2px\">IF COD order</div><div style=\"font-size:11px;color:#1DC974;font-weight:600\">THEN &#8594; Snowboard at 10% off</div></div></div>'},
-  {title:'Carousel Upsells in Cart',desc:'Each rule shows up to 3 products as a swipeable carousel right in the cart drawer. Customers add with one tap.',tip:'Enable the countdown timer in Settings to create urgency and boost conversions.',
-   screen:'<style>@keyframes ubFU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}@keyframes ubP{0%,100%{box-shadow:0 0 0 0 rgba(61,255,160,0.25)}60%{box-shadow:0 0 0 6px rgba(61,255,160,0)}}</style><div style=\"width:100%;height:100%;background:#F4F5F7;display:flex;align-items:center;justify-content:center;padding:12px\"><div style=\"background:white;border-radius:12px;width:230px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden;animation:ubFU .4s ease forwards\"><div style=\"background:#0D0D0D;padding:8px 12px;display:flex;justify-content:space-between;align-items:center\"><span style=\"font-size:12px;font-weight:600;color:white\">Your cart</span><span style=\"font-size:10px;color:#6B7280\">&#8377;499</span></div><div style=\"padding:8px 11px;border-bottom:1px solid #F1F5F9\"><div style=\"display:flex;align-items:center;gap:8px\"><div style=\"width:26px;height:26px;background:#E8FFF4;border-radius:5px;flex-shrink:0\"></div><div style=\"font-size:11px;font-weight:600\">T-shirt Blue &#8377;499</div></div></div><div style=\"border:2px solid #3DFFA0;border-radius:10px;margin:7px;padding:8px;animation:ubP 2s 1s infinite\"><div style=\"background:#FEE2E2;border-radius:5px;padding:3px 8px;text-align:center;margin-bottom:6px;font-size:10px;font-weight:700;color:#DC2626\">Offer expires in 09:47</div><div style=\"font-size:9px;font-weight:700;color:#0D7A4E;text-transform:uppercase;margin-bottom:6px\">Customers also buy</div><div style=\"display:flex;align-items:center;gap:7px;margin-bottom:7px\"><div style=\"width:34px;height:34px;background:#E8FFF4;border-radius:6px;flex-shrink:0\"></div><div><div style=\"font-size:11px;font-weight:600;margin-bottom:2px\">Tshirts black color</div><div style=\"display:flex;gap:4px;align-items:center\"><span style=\"font-size:11px;font-weight:700;color:#1DC974\">&#8377;199</span><span style=\"font-size:9px;color:#94A3B8;text-decoration:line-through\">&#8377;249</span><span style=\"font-size:8px;background:#3DFFA0;color:#0D0D0D;padding:0 4px;border-radius:3px;font-weight:700\">20% OFF</span></div></div></div><button style=\"width:100%;background:#3DFFA0;color:#0D0D0D;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700\">+ Add to cart</button></div><div style=\"margin:0 7px 7px;background:#0D0D0D;border-radius:7px;padding:8px;text-align:center;font-size:12px;font-weight:700;color:white\">Check out</div></div></div>'},
-  {title:'Low Stock Urgency Rules',desc:'When a variant stock drops below your threshold, automatically show "Only 3 left!" urgency badges on the upsell.',tip:'Set threshold to 5 units - triggers urgency at the right time.',
-   screen:'<style>@keyframes ubFU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}</style><div style=\"width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:8px\"><div style=\"font-size:11px;font-weight:700;color:#1A202C;margin-bottom:2px\">Low Stock Rule</div><div style=\"background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:11px;animation:ubFU .4s ease forwards\"><div style=\"font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;margin-bottom:7px\">IF Condition</div><div style=\"background:#FFFBEB;border-radius:8px;padding:9px;border:1px solid #FDE68A\"><div style=\"font-size:9px;font-weight:700;color:#92400E;margin-bottom:6px\">WHICH VARIANT TRIGGERS?</div><div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px\"><div style=\"background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A\"><div style=\"font-size:8px;color:#92400E\">Product</div><div style=\"font-size:10px;font-weight:600\">T-shirt</div></div><div style=\"background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A\"><div style=\"font-size:8px;color:#92400E\">Variant</div><div style=\"font-size:10px;font-weight:600\">S size</div></div><div style=\"background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A\"><div style=\"font-size:8px;color:#DC2626\">Stock 5</div></div></div></div></div><div style=\"background:white;border-radius:10px;border:2px solid #3DFFA0;padding:11px;animation:ubFU .4s .2s ease both\"><div style=\"font-size:9px;font-weight:700;color:#0D7A4E;text-transform:uppercase;margin-bottom:7px\">RESULT in cart</div><div style=\"display:flex;align-items:center;gap:8px\"><div style=\"width:38px;height:38px;background:#E8FFF4;border-radius:6px;flex-shrink:0\"></div><div><div style=\"background:#FEE2E2;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:3px;font-size:10px;font-weight:700;color:#DC2626\">Only 3 left!</div><div style=\"font-size:12px;font-weight:600\">T-shirt Blue S size</div><div style=\"font-size:11px;color:#1DC974;font-weight:600\">&#8377;399 - 20% OFF</div></div></div></div></div>'},
-  {title:'Track Revenue in Analytics',desc:'Every accepted upsell is tracked in real time - total revenue, acceptance rate, top rules, and all events.',tip:'Check Analytics weekly, find your best rules, then duplicate and test variations!',
-   screen:'<style>@keyframes ubFU{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}</style><div style=\"width:100%;height:100%;background:#F4F5F7;padding:11px;display:flex;flex-direction:column;gap:7px\"><div style=\"font-size:11px;font-weight:700;color:#1A202C;margin-bottom:2px\">Analytics</div><div style=\"display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;animation:ubFU .4s ease forwards\"><div style=\"background:white;border-radius:8px;padding:8px;border:1px solid #E2E8F0\"><div style=\"font-size:9px;color:#94A3B8;text-transform:uppercase;margin-bottom:2px\">Revenue</div><div style=\"font-size:17px;font-weight:800;color:#1DC974\">&#8377;47,832</div></div><div style=\"background:white;border-radius:8px;padding:8px;border:1px solid #E2E8F0\"><div style=\"font-size:9px;color:#94A3B8;text-transform:uppercase;margin-bottom:2px\">Acceptance</div><div style=\"font-size:17px;font-weight:800\">34%</div></div><div style=\"background:white;border-radius:8px;padding:8px;border:1px solid #E2E8F0\"><div style=\"font-size:9px;color:#94A3B8;text-transform:uppercase;margin-bottom:2px\">Avg Value</div><div style=\"font-size:17px;font-weight:800\">&#8377;372</div></div></div><div style=\"background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0;flex:1;animation:ubFU .4s .15s ease both\"><div style=\"font-size:10px;font-weight:600;margin-bottom:6px\">Recent events</div><div style=\"display:flex;flex-direction:column;gap:4px\"><div style=\"display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid #F1F5F9\"><span style=\"font-size:9px;color:#94A3B8;font-family:monospace\">#4821</span><span style=\"font-size:10px;flex:1\">Tshirts black</span><span style=\"font-size:9px;background:#E8FFF4;color:#0D7A4E;padding:1px 5px;border-radius:99px;font-weight:600\">Accepted</span><span style=\"font-size:10px;color:#1DC974;font-weight:600\">+&#8377;199</span></div><div style=\"display:flex;align-items:center;gap:5px;padding:4px 0;border-bottom:1px solid #F1F5F9\"><span style=\"font-size:9px;color:#94A3B8;font-family:monospace\">#4820</span><span style=\"font-size:10px;flex:1\">Gift Card</span><span style=\"font-size:9px;background:#F1F5F9;color:#64748B;padding:1px 5px;border-radius:99px;font-weight:600\">Declined</span></div><div style=\"display:flex;align-items:center;gap:5px;padding:4px 0\"><span style=\"font-size:9px;color:#94A3B8;font-family:monospace\">#4819</span><span style=\"font-size:10px;flex:1\">Snowboard</span><span style=\"font-size:9px;background:#E8FFF4;color:#0D7A4E;padding:1px 5px;border-radius:99px;font-weight:600\">Accepted</span><span style=\"font-size:10px;color:#1DC974;font-weight:600\">+&#8377;629</span></div></div></div></div>'}
+// Tour steps
+var TOUR_STEPS = [
+  {
+    title: 'Welcome to UpsellBoost!',
+    desc: 'The smart upsell engine for Shopify merchants. Boost your AOV with intelligent cart and post-purchase upsells.',
+    tip: 'Most merchants see 15-25% increase in AOV within the first week.',
+    screen: '<div style="width:100%;height:100%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:16px"><div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:28px;border:2px solid #3DFFA0;border-radius:7px;background:#0D0D0D"></div><span style="font-size:17px;font-weight:700;color:white">UpsellBoost</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:300px"><div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.2);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Revenue Added</div><div style="font-size:22px;font-weight:800;color:#3DFFA0">Growing</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Acceptance</div><div style="font-size:22px;font-weight:800;color:white">High</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Upsells Shown</div><div style="font-size:22px;font-weight:800;color:white">Many</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Active Rules</div><div style="font-size:22px;font-weight:800;color:white">Live</div></div></div></div>'
+  },
+  {
+    title: 'Create Smart Upsell Rules',
+    desc: 'Build rules: when customer adds a product to cart, show them a related product at a discount. First matching rule wins.',
+    tip: 'Start with "Any order" to show upsells to everyone, then add specific rules.',
+    screen: '<div style="width:100%;height:100%;background:#F4F5F7;padding:14px;display:flex;flex-direction:column;gap:7px"><div style="font-size:11px;font-weight:700;color:#1A202C">Dynamic Offer Engine</div><div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:11px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">1</div><span style="font-size:12px;font-weight:600;flex:1">Rule 1</span><span style="font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Active</span></div><div style="font-size:11px;color:#64748B">IF Any order</div><div style="font-size:11px;color:#1DC974;font-weight:600">THEN Show Wireless Earbuds at 20% off</div></div><div style="background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:11px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">2</div><span style="font-size:12px;font-weight:600;flex:1">Rule 2</span><span style="font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Active</span></div><div style="font-size:11px;color:#64748B">IF Order above $50</div><div style="font-size:11px;color:#1DC974;font-weight:600">THEN Show Gift Card at 15% off</div></div></div>'
+  },
+  {
+    title: 'Carousel Upsells in Cart',
+    desc: 'Each rule shows products as a swipeable carousel in the cart drawer. Customers add with one tap.',
+    tip: 'Enable the countdown timer in Settings to create urgency.',
+    screen: '<div style="width:100%;height:100%;background:#F4F5F7;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:white;border-radius:12px;width:230px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden"><div style="background:#0D0D0D;padding:9px 13px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:600;color:white">Your cart</span></div><div style="padding:9px 12px;border-bottom:1px solid #F1F5F9"><div style="font-size:11px;font-weight:600">Product in cart</div></div><div style="border:2px solid #3DFFA0;border-radius:10px;margin:8px;padding:9px"><div style="background:#FEE2E2;border-radius:5px;padding:3px 8px;text-align:center;margin-bottom:7px;font-size:10px;font-weight:700;color:#DC2626">Offer expires in 09:47</div><div style="font-size:9px;font-weight:700;color:#0D7A4E;text-transform:uppercase;margin-bottom:6px">Customers also buy</div><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><div style="width:34px;height:34px;background:#E8FFF4;border-radius:6px;flex-shrink:0"></div><div><div style="font-size:11px;font-weight:600">Wireless Earbuds</div><div style="display:flex;gap:4px"><span style="font-size:11px;font-weight:700;color:#1DC974">20% OFF</span></div></div></div><button style="width:100%;background:#3DFFA0;color:#0D0D0D;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700">+ Add to cart</button></div><div style="margin:0 8px 8px;background:#0D0D0D;border-radius:7px;padding:8px;text-align:center;font-size:12px;font-weight:700;color:white">Check out</div></div></div>'
+  },
+  {
+    title: 'Low Stock Urgency',
+    desc: 'When a variant stock drops below your threshold, automatically show urgency badges on the upsell.',
+    tip: 'Set threshold to 5 units for best results.',
+    screen: '<div style="width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:8px"><div style="font-size:11px;font-weight:700;color:#1A202C">Low Stock Rule</div><div style="background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:12px"><div style="background:#FFFBEB;border-radius:8px;padding:10px;border:1px solid #FDE68A"><div style="font-size:9px;font-weight:700;color:#92400E;margin-bottom:6px">TRIGGER: WHEN STOCK DROPS BELOW</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><div style="background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A"><div style="font-size:8px;color:#92400E">Product</div><div style="font-size:10px;font-weight:600">T-shirt</div></div><div style="background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A"><div style="font-size:8px;color:#92400E">Variant</div><div style="font-size:10px;font-weight:600">Size S</div></div><div style="background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A"><div style="font-size:8px;color:#DC2626">5 units</div></div></div></div></div><div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:12px"><div style="display:flex;align-items:center;gap:8px"><div style="width:38px;height:38px;background:#E8FFF4;border-radius:6px;flex-shrink:0"></div><div><div style="background:#FEE2E2;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:3px;font-size:10px;font-weight:700;color:#DC2626">Only 3 left!</div><div style="font-size:12px;font-weight:600">T-shirt Size S</div></div></div></div></div>'
+  },
+  {
+    title: 'Track Revenue in Analytics',
+    desc: 'Every accepted upsell is tracked in real time. See total revenue, acceptance rate, and all events.',
+    tip: 'Check Analytics weekly, find your best rules, then duplicate and test variations!',
+    screen: '<div style="width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:8px"><div style="font-size:11px;font-weight:700;color:#1A202C">Analytics</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"><div style="background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Revenue</div><div style="font-size:18px;font-weight:800;color:#1DC974">Growing</div></div><div style="background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Acceptance</div><div style="font-size:18px;font-weight:800">High</div></div><div style="background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Avg Value</div><div style="font-size:18px;font-weight:800">Good</div></div></div><div style="background:white;border-radius:8px;padding:10px;border:1px solid #E2E8F0;flex:1"><div style="font-size:10px;font-weight:600;margin-bottom:7px">Recent events</div><div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #F1F5F9"><span style="font-size:9px;color:#94A3B8;font-family:monospace">#4821</span><span style="font-size:10px;flex:1">Wireless Earbuds</span><span style="font-size:9px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 5px;border-radius:99px">Accepted</span></div><div style="display:flex;align-items:center;gap:6px;padding:4px 0"><span style="font-size:9px;color:#94A3B8;font-family:monospace">#4820</span><span style="font-size:10px;flex:1">Gift Card</span><span style="font-size:9px;font-weight:600;background:#F1F5F9;color:#64748B;padding:1px 5px;border-radius:99px">Declined</span></div></div></div></div>'
+  }
 ];
-let tourStep = 0;
 
-function startTour() { tourStep=0; renderTourStep(); document.getElementById('tour-overlay').style.display='flex'; }
-function renderTourStep(){
-  var step=TOUR_STEPS[tourStep];
-  document.getElementById('tour-screen').innerHTML=step.screen;
-  document.getElementById('tour-title').textContent=step.title;
-  document.getElementById('tour-desc').textContent=step.desc;
-  document.getElementById('tour-tip').innerHTML='<span style="font-size:16px;flex-shrink:0">&#128161;</span><span>'+step.tip+'</span>';
-  document.getElementById('tour-dots').innerHTML=TOUR_STEPS.map(function(_,i){return '<div class="tour-dot'+(i===tourStep?' active':'')+'"></div>';}).join('');
-  document.getElementById('tour-back').style.display=tourStep===0?'none':'block';
-  document.getElementById('tour-next').textContent=tourStep===TOUR_STEPS.length-1?'🚀 Get started!':'Next →';
+function startTour() { tourStep = 0; renderTourStep(); document.getElementById('tour-overlay').style.display = 'flex'; }
+
+function renderTourStep() {
+  var step = TOUR_STEPS[tourStep];
+  document.getElementById('tour-screen').innerHTML = step.screen;
+  document.getElementById('tour-title').textContent = step.title;
+  document.getElementById('tour-desc').textContent = step.desc;
+  document.getElementById('tour-tip').innerHTML = '<span style="font-size:16px;flex-shrink:0">&#128161;</span><span>' + step.tip + '</span>';
+  var dots = '';
+  for (var i = 0; i < TOUR_STEPS.length; i++) {
+    dots += '<div class="tour-dot' + (i === tourStep ? ' active' : '') + '"></div>';
+  }
+  document.getElementById('tour-dots').innerHTML = dots;
+  document.getElementById('tour-back').style.display = tourStep === 0 ? 'none' : 'block';
+  document.getElementById('tour-next').textContent = tourStep === TOUR_STEPS.length - 1 ? 'Get started!' : 'Next';
 }
-function tourNext() { if(tourStep<TOUR_STEPS.length-1){tourStep++;renderTourStep();}else{skipTour();showPage(null,'offers');setTimeout(()=>showToast('Create your first rule to start upselling! 🎯'),400);} }
-function tourBack() { if(tourStep>0){tourStep--;renderTourStep();} }
-function skipTour() { document.getElementById('tour-overlay').style.display='none'; }
-function neverShowTour() { localStorage.setItem('ub2_tour_never','true'); document.getElementById('tour-overlay').style.display='none'; showToast('Tour hidden — click 🎯 Tour in the nav to replay anytime'); }
 
-// -- NAV --
+function tourNext() {
+  if (tourStep < TOUR_STEPS.length - 1) { tourStep++; renderTourStep(); }
+  else { skipTour(); showPage(null, 'offers'); setTimeout(function(){ showToast('Create your first rule to start upselling!'); }, 400); }
+}
+function tourBack() { if (tourStep > 0) { tourStep--; renderTourStep(); } }
+function skipTour() { document.getElementById('tour-overlay').style.display = 'none'; }
+function neverShowTour() { localStorage.setItem('ub2_tour_never', 'true'); document.getElementById('tour-overlay').style.display = 'none'; showToast('Tour hidden. Click Tour in nav to replay.'); }
+
 function showPage(event, name) {
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  if(event&&event.currentTarget) event.currentTarget.classList.add('active');
-  if(name==='analytics') renderAnalytics();
-  if(name==='dashboard') renderDashboard();
-  if(name==='pricing') updatePrices();
-  if(name==='affiliate') calcAffiliate();
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  document.getElementById('page-' + name).classList.add('active');
+  if (event && event.currentTarget) event.currentTarget.classList.add('active');
+  if (name === 'analytics') renderAnalytics();
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'pricing') updatePrices();
+  if (name === 'affiliate') calcAffiliate();
 }
 
-function toggleSwitch(e){ var el=e?e.currentTarget:e; if(el&&el.classList) el.classList.toggle('on'); }
+function toggleSwitch(e) { var el = e ? e.currentTarget : null; if (el && el.classList) el.classList.toggle('on'); }
 
 function showToast(msg) {
-  const t=document.getElementById('toast');
-  document.getElementById('toast-msg').textContent=msg;
+  var t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),3500);
+  setTimeout(function(){ t.classList.remove('show'); }, 3500);
 }
 
-function setGreeting(){ const h=new Date().getHours(); document.getElementById('dash-greeting').textContent=(h<12?'Good morning':h<17?'Good afternoon':'Good evening')+' — here\'s your upsell performance'; }
-function buildChart(){ const wrap=document.getElementById('revenue-chart'); const days=['M','T','W','T','F','S','S','M','T','W','T','F','S','S']; wrap.innerHTML=days.map((d,i)=>`<div class="chart-bar-col"><div class="chart-bar${i===days.length-1?' today':''}" style="height:4%"></div><span class="chart-label">${d}</span></div>`).join(''); }
-
-function renderDashboard(){
-  const events=S.events; const accepted=events.filter(e=>e.accepted); const revenue=accepted.reduce((s,e)=>s+(e.revenue||0),0); const rate=events.length>0?Math.round(accepted.length/events.length*100):0;
-  document.getElementById('d-revenue').textContent=getCurrencySymbol()+revenue.toLocaleString();
-  document.getElementById('d-rate').textContent=rate+'%';
-  document.getElementById('d-shown').textContent=events.length;
-  document.getElementById('d-wa').textContent=events.filter(e=>e.wa_sent).length;
-  document.getElementById('plan-bar').style.width=Math.min(events.length/50*100,100)+'%';
-  document.getElementById('plan-meta').textContent=events.length+' / 50 orders used';
-  const aoList=document.getElementById('active-offers-list');
-  if(S.rules.length>0){ aoList.innerHTML=S.rules.slice(0,3).map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)"><div style="width:8px;height:8px;border-radius:50%;background:var(--green-d);flex-shrink:0"></div><div style="flex:1"><div style="font-size:13px;font-weight:500">${r.product_name||'Product'} — ${r.discount}% off</div><div style="font-size:11px;color:var(--muted)">${r.condition_label||'All orders'}</div></div><span style="font-size:11px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:2px 8px;border-radius:99px;border:1px solid rgba(29,201,116,0.2)">Active</span></div>`).join(''); document.getElementById('offer-count').textContent=S.rules.length; }
-  const tbody=document.getElementById('recent-events'); if(events.length===0) return;
-  tbody.innerHTML=events.slice(-5).reverse().map(e=>`<tr><td class="mono">#${e.order_id}</td><td>${e.product_name||'—'}</td><td>${e.channel||'post-purchase'}</td><td>${e.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td><td style="color:${e.accepted?'var(--green-d)':'var(--soft)'}">${e.accepted?'+getCurrencySymbol()+e.revenue:'—'}</td><td style="color:var(--muted);font-size:12px">${new Date(e.date).toLocaleDateString()}</td></tr>`).join('');
+function setGreeting() {
+  var h = new Date().getHours();
+  var g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('dash-greeting').textContent = g + ' -- here\'s your upsell performance';
 }
 
-// -- RULE BUILDER --
-let ruleCount = 0;
-function getVariantOptions(productId) { const p=productsWithVariants.find(x=>String(x.id)===String(productId)); if(!p||!p.variants) return '<option value="">Select variant...</option>'; return '<option value="">All variants</option>'+p.variants.map(v=>`<option value="${v.id}">${v.title} (Stock: ${v.inventory_quantity})</option>`).join(''); }
+function buildChart() {
+  var wrap = document.getElementById('revenue-chart');
+  var days = ['M','T','W','T','F','S','S','M','T','W','T','F','S','S'];
+  var html = '';
+  for (var i = 0; i < days.length; i++) {
+    html += '<div class="chart-bar-col"><div class="chart-bar' + (i === days.length-1 ? ' today' : '') + '" style="height:4%"></div><span class="chart-label">' + days[i] + '</span></div>';
+  }
+  wrap.innerHTML = html;
+}
+
+function renderDashboard() {
+  var events = S.events;
+  var accepted = events.filter(function(e){ return e.accepted; });
+  var revenue = accepted.reduce(function(s, e){ return s + (e.revenue || 0); }, 0);
+  var rate = events.length > 0 ? Math.round(accepted.length / events.length * 100) : 0;
+  var sym = getCurrencySymbol();
+  document.getElementById('d-revenue').textContent = sym + revenue.toLocaleString();
+  document.getElementById('d-rate').textContent = rate + '%';
+  document.getElementById('d-shown').textContent = events.length;
+  document.getElementById('d-wa').textContent = events.filter(function(e){ return e.wa_sent; }).length;
+  document.getElementById('plan-bar').style.width = Math.min(events.length / 50 * 100, 100) + '%';
+  document.getElementById('plan-meta').textContent = events.length + ' / 50 orders used';
+  var aoList = document.getElementById('active-offers-list');
+  if (S.rules.length > 0) {
+    var html = '';
+    S.rules.slice(0, 3).forEach(function(r) {
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)"><div style="width:8px;height:8px;border-radius:50%;background:var(--green-d);flex-shrink:0"></div><div style="flex:1"><div style="font-size:13px;font-weight:500">' + (r.product_name || 'Product') + ' -- ' + r.discount + '% off</div><div style="font-size:11px;color:var(--muted)">' + (r.condition_label || 'All orders') + '</div></div><span style="font-size:11px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:2px 8px;border-radius:99px">Active</span></div>';
+    });
+    aoList.innerHTML = html;
+    document.getElementById('offer-count').textContent = S.rules.length;
+  }
+  var tbody = document.getElementById('recent-events');
+  if (events.length === 0) return;
+  var rows = '';
+  events.slice(-5).reverse().forEach(function(e) {
+    rows += '<tr><td class="mono">#' + e.order_id + '</td><td>' + (e.product_name || '--') + '</td><td>' + (e.channel || 'post-purchase') + '</td><td>' + (e.accepted ? '<span class="badge badge-green">Accepted</span>' : '<span class="badge badge-gray">Declined</span>') + '</td><td style="color:' + (e.accepted ? 'var(--green-d)' : 'var(--soft)') + '">' + (e.accepted ? '+' + sym + e.revenue : '--') + '</td><td style="color:var(--muted);font-size:12px">' + new Date(e.date).toLocaleDateString() + '</td></tr>';
+  });
+  tbody.innerHTML = rows;
+}
+
+// Rule builder
+function getVariantOptions(productId) {
+  var p = productsWithVariants.find(function(x){ return String(x.id) === String(productId); });
+  if (!p || !p.variants) return '<option value="">Select variant...</option>';
+  var opts = '<option value="">All variants</option>';
+  p.variants.forEach(function(v){ opts += '<option value="' + v.id + '">' + v.title + ' (Stock: ' + v.inventory_quantity + ')</option>'; });
+  return opts;
+}
+
 function updateConditionUI(n) {
-  const condType=document.getElementById('rc-'+n)?.value||'any';
-  const variantRow=document.getElementById('variant-row-'+n), valRow=document.getElementById('val-row-'+n), productRow=document.getElementById('product-trigger-row-'+n);
-  if(variantRow) variantRow.style.display='none'; if(valRow) valRow.style.display='none'; if(productRow) productRow.style.display='none';
-  if(condType==='low_stock'){if(variantRow) variantRow.style.display='block';}
-  else if(condType==='order_value'){if(valRow) valRow.style.display='block'; const v=document.getElementById('rv-'+n); if(v) v.placeholder='Min order value e.g. 500';}
-  else if(condType==='product'){if(productRow) productRow.style.display='block';}
-  else if(condType==='category'){if(valRow) valRow.style.display='block'; const v=document.getElementById('rv-'+n); if(v) v.placeholder='Category name e.g. t-shirt';}
+  var ct = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
+  var vr = document.getElementById('variant-row-' + n);
+  var vl = document.getElementById('val-row-' + n);
+  var pr = document.getElementById('product-trigger-row-' + n);
+  if (vr) vr.style.display = 'none';
+  if (vl) vl.style.display = 'none';
+  if (pr) pr.style.display = 'none';
+  if (ct === 'low_stock') { if (vr) vr.style.display = 'block'; }
+  else if (ct === 'order_value') { if (vl) vl.style.display = 'block'; }
+  else if (ct === 'product') { if (pr) pr.style.display = 'block'; }
+  else if (ct === 'category') { if (vl) vl.style.display = 'block'; }
   updateRuleSummary(n);
 }
-function updateVariantSelector(n) { const ps=document.getElementById('trigger-product-'+n), vs=document.getElementById('trigger-variant-'+n); if(ps&&vs) vs.innerHTML=getVariantOptions(ps.value); updateRuleSummary(n); }
+
+function updateVariantSelector(n) {
+  var ps = document.getElementById('trigger-product-' + n);
+  var vs = document.getElementById('trigger-variant-' + n);
+  if (ps && vs) vs.innerHTML = getVariantOptions(ps.value);
+  updateRuleSummary(n);
+}
+
 function updateRuleSummary(n) {
-  const condType=document.getElementById('rc-'+n)?.value||'any';
-  const labels={'any':'Any order','product':'Contains product','category':'Product category','order_value':'Order value above','cod':'COD order','returning':'Returning customer','first_time':'First-time customer','low_stock':'Low stock + variant'};
-  let condText=labels[condType]||condType;
-  if(condType==='product'){const tp=document.getElementById('product-trigger-sel-'+n); if(tp&&tp.value) condText='Contains "'+tp.options[tp.selectedIndex]?.text+'"';}
-  else if(condType==='order_value'){const v=document.getElementById('rv-'+n)?.value; if(v) condText='Order above ?'+v;}
-  else if(condType==='category'){const v=document.getElementById('rv-'+n)?.value; if(v) condText='Category: '+v;}
-  else if(condType==='low_stock'){const tp=document.getElementById('trigger-product-'+n), tv=document.getElementById('trigger-variant-'+n); if(tp&&tp.value) condText='Low stock: '+tp.options[tp.selectedIndex]?.text+(tv?.value?' / '+tv.options[tv.selectedIndex]?.text:'');}
-  const p1=document.getElementById('rp-'+n); let actionText='No product selected';
-  if(p1&&p1.value){ actionText=p1.options[p1.selectedIndex]?.text||'Product'; const p2=document.getElementById('rp2-'+n), p3=document.getElementById('rp3-'+n); const extras=[p2,p3].filter(s=>s&&s.value).length; if(extras>0) actionText+=' +'+extras+' more'; actionText+=' at '+(document.getElementById('rd-'+n)?.value||15)+'% off'; }
-  const titleEl=document.querySelector('#rule-'+n+' .rule-summary-title'), subEl=document.querySelector('#rule-'+n+' .rule-summary-sub');
-  if(titleEl) titleEl.textContent='IF '+condText; if(subEl) subEl.textContent='THEN → '+actionText;
-}
-function toggleRule(n){ const c=document.getElementById('rule-'+n); if(c) c.classList.toggle('rule-expanded'); }
-function duplicateRule(n){
-  const cv=document.getElementById('rc-'+n)?.value, p1v=document.getElementById('rp-'+n)?.value, p2v=document.getElementById('rp2-'+n)?.value, p3v=document.getElementById('rp3-'+n)?.value, dv=document.getElementById('rd-'+n)?.value, vv=document.getElementById('rv-'+n)?.value;
-  addRule(); const newN=ruleCount;
-  setTimeout(()=>{ const nc=document.getElementById('rc-'+newN); if(nc&&cv){nc.value=cv;updateConditionUI(newN);} const np1=document.getElementById('rp-'+newN); if(np1&&p1v) np1.value=p1v; const np2=document.getElementById('rp2-'+newN); if(np2&&p2v) np2.value=p2v; const np3=document.getElementById('rp3-'+newN); if(np3&&p3v) np3.value=p3v; const nd=document.getElementById('rd-'+newN); if(nd&&dv) nd.value=dv; const nv=document.getElementById('rv-'+newN); if(nv&&vv) nv.value=vv; updateRuleSummary(newN); showToast('Rule duplicated ?'); },150);
-}
-function addRule(){
-  ruleCount++; const n=ruleCount; const container=document.getElementById('rules-container'); const div=document.createElement('div'); div.className='rule-card rule-expanded'; div.id='rule-'+n;
-  const po=products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');
-  div.innerHTML=`<div class="rule-summary-row" onclick="toggleRule(${n})"><div class="rule-num">${n}</div><div class="rule-summary-text"><div class="rule-summary-title">IF Any order</div><div class="rule-summary-sub">THEN — No product selected</div></div><span class="rule-status">Active</span><div class="rule-actions" onclick="event.stopPropagation()"><button class="rule-btn rule-btn-dup" onclick="duplicateRule(${n})" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><button class="rule-btn rule-btn-del" onclick="deleteRule(${n})" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></div><svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></div>
-    <div class="rule-fields">
-      <div class="rule-section-label">IF — Condition</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div><label class="form-label" style="font-size:11px">When does this rule trigger?</label><select class="form-select" id="rc-${n}" onchange="updateConditionUI(${n})"><option value="any">Any order — always trigger</option><option value="product">Cart contains specific product</option><option value="category">Cart contains product category</option><option value="order_value">Order value is above amount</option><option value="cod">Cash on delivery order</option><option value="returning">Returning customer</option><option value="first_time">First-time customer</option><option value="low_stock">Low stock + variant in cart</option></select></div>
-        <div><label class="form-label" style="font-size:11px">Timing</label><select class="form-select"><option>Show immediately</option><option>Show after 3s</option></select></div>
-      </div>
-      <div id="product-trigger-row-${n}" style="display:none;margin-bottom:10px;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE"><label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label><select class="form-select" id="product-trigger-sel-${n}" onchange="updateRuleSummary(${n})"><option value="">Select product...</option>${po}</select></div>
-      <div id="val-row-${n}" style="display:none;margin-bottom:10px"><label class="form-label" style="font-size:11px">Value</label><input type="text" class="form-input" placeholder="e.g. 500 or category name" id="rv-${n}" oninput="updateRuleSummary(${n})"></div>
-      <div id="variant-row-${n}" style="display:none;margin-bottom:12px;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A"><div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:10px">Which product+variant triggers this low stock rule?</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">Trigger product</label><select class="form-select" id="trigger-product-${n}" onchange="updateVariantSelector(${n})"><option value="">Select product...</option>${po}</select></div><div><label class="form-label" style="font-size:11px">Specific variant (e.g. S size)</label><select class="form-select" id="trigger-variant-${n}"><option value="">Select product first...</option></select></div><div><label class="form-label" style="font-size:11px">Stock threshold</label><input type="number" class="form-input" id="rv-${n}" value="5" min="1" oninput="updateRuleSummary(${n})"></div></div></div>
-      <div class="rule-section-label">THEN — Upsell products (carousel, up to 3)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="form-label" style="font-size:11px">Product 1 <span style="color:var(--red)">required</span></label><select class="form-select rule-product" id="rp-${n}" onchange="updateRuleSummary(${n})"><option value="">Select product...</option>${po}</select></div><div><label class="form-label" style="font-size:11px">Product 2 <span style="color:var(--soft)">optional</span></label><select class="form-select" id="rp2-${n}" onchange="updateRuleSummary(${n})"><option value="">None</option>${po}</select></div><div><label class="form-label" style="font-size:11px">Product 3 <span style="color:var(--soft)">optional</span></label><select class="form-select" id="rp3-${n}" onchange="updateRuleSummary(${n})"><option value="">None</option>${po}</select></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">Discount for all products in this rule</label><div class="input-group"><input type="number" class="form-input" id="rd-${n}" value="15" min="1" max="90" oninput="updateRuleSummary(${n})"><span class="input-suffix">% off</span></div></div><div><label class="form-label" style="font-size:11px">Display location</label><select class="form-select"><option>Cart + post-purchase popup</option><option>Cart only</option><option>Post-purchase popup only</option></select></div></div>
-    </div>`;
-  container.appendChild(div); showToast('Rule '+n+' added — fill in the details and save!');
-}
-function deleteRule(n){ const el=document.getElementById('rule-'+n); if(el){el.style.opacity='0';el.style.transform='translateX(20px)';setTimeout(()=>el.remove(),200);} }
-
-async function saveRules(){
-  const rules=[];
-  document.querySelectorAll('.rule-card').forEach((card,i)=>{
-    const n=card.id.split('-')[1]; const condTypeRaw=document.getElementById('rc-'+n)?.value||'any';
-    const condTypeMap={'any':'any','product':'contains_product','category':'product_category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
-    const condType=condTypeMap[condTypeRaw]||condTypeRaw; const productSel=document.getElementById('rp-'+n); const discount=document.getElementById('rd-'+n)?.value||'15';
-    let finalCondVal=null;
-    if(condType==='low_stock'){const tp=document.getElementById('trigger-product-'+n)?.value||''; const tv=document.getElementById('trigger-variant-'+n)?.value||''; const th=document.getElementById('rv-'+n)?.value||'5'; finalCondVal=tp+':'+tv+':'+th;}
-    else if(condType==='contains_product'){finalCondVal=document.getElementById('product-trigger-sel-'+n)?.value||null;}
-    else{finalCondVal=document.getElementById('rv-'+n)?.value||null;}
-    if(productSel&&productSel.value){ rules.push({id:String(i+1),condition:condType,condition_val:finalCondVal,condition_label:condTypeRaw.replace(/_/g,' '),product_id:productSel.value,product_id2:document.getElementById('rp2-'+n)?.value||null,product_id3:document.getElementById('rp3-'+n)?.value||null,product_name:productSel.options[productSel.selectedIndex]?.text||'Product',discount:parseInt(discount)}); }
-  });
-  S.rules=rules; localStorage.setItem('ub2_rules',JSON.stringify(rules)); document.getElementById('offer-count').textContent=rules.length;
-  try{ const r=await fetch('/api/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules, shop: getShop()})}); const d=await r.json(); if(d.success) showToast('Rules saved & activated! ?'); else showToast('Saved locally — check server'); } catch(e){ showToast('Saved locally ?'); }
-}
-
-function previewRules(){ const t=document.querySelector('.rule-summary-title')?.textContent||''; const s=document.querySelector('.rule-summary-sub')?.textContent||''; showToast(t&&s?t+' '+s:'No rules yet — add one first!'); }
-
-function renderAnalytics(){
-  const e=S.events; const acc=e.filter(x=>x.accepted); const rev=acc.reduce((s,x)=>s+(x.revenue||0),0); const rate=e.length?Math.round(acc.length/e.length*100):0; const avg=acc.length?Math.round(rev/acc.length):0;
-  document.getElementById('a-revenue').textContent=getCurrencySymbol()+rev.toLocaleString(); document.getElementById('a-rate').textContent=rate+'%'; document.getElementById('a-customers').textContent=new Set(e.map(x=>x.order_id)).size; document.getElementById('a-avg').textContent=getCurrencySymbol()+avg.toLocaleString();
-  const tbody=document.getElementById('all-events-table'); if(e.length===0) return;
-  tbody.innerHTML=e.slice().reverse().map(x=>`<tr><td class="mono">#${x.order_id}</td><td>${x.product_name||'—'}</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">${x.trigger_rule||'all'}</span></td><td>${x.channel||'post-purchase'}</td><td>${x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>'}</td><td style="color:${x.accepted?'var(--green-d)':'var(--soft)'}">${x.accepted?'+getCurrencySymbol()+x.revenue:'—'}</td><td style="color:var(--muted);font-size:12px">${new Date(x.date).toLocaleDateString()}</td></tr>`).join('');
-}
-
-function saveWA(){ showToast('WhatsApp settings saved ?'); }
-
-async function saveSettings(){
-  const tt=document.getElementById('timer-toggle'), tm=document.getElementById('timer-minutes');
-  const settings={timer_enabled:tt?tt.classList.contains('on'):false,timer_minutes:tm?parseInt(tm.value)||10:10};
-  S.settings=settings; localStorage.setItem('ub2_settings',JSON.stringify({...settings, shop: getShop()}));
-  try{ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...settings, shop: getShop()})}); showToast('Settings saved ?'); } catch(e){ showToast('Settings saved locally ✓'); }
-}
-
-// -- PRICING --
-let currentCurrency='usd', currentBilling='monthly';
-const PRICES={ usd:{free:0, basic:9.99, pro:24.99, enterprise:59.99} };
-
-function setCurrency(c){
-  currentCurrency=c;
-  ['inr','usd'].forEach(x=>{ const el=document.getElementById('curr-'+x); if(el){el.style.background=c===x?'var(--navy)':'transparent';el.style.color=c===x?'var(--green)':'var(--muted)';} });
-  updatePrices();
-}
-
-function setBilling(b){
-  currentBilling=b;
-  ['monthly','annual'].forEach(x=>{ const el=document.getElementById('bill-'+x); if(el){el.style.background=b===x?'var(--navy)':'transparent';el.style.color=b===x?'var(--green)':'var(--muted)';} });
-  updatePrices();
-}
-
-function updatePrices(){
-  const sym='$', isAnnual=currentBilling==='annual', p=PRICES['usd'];
-  const period = isAnnual ? 'per month, billed annually' : 'per month';
-  ['basic','pro','enterprise'].forEach(plan=>{
-    const m = p[plan];
-    const price = isAnnual ? +(m*10/12).toFixed(2) : m;
-    const el = document.getElementById('price-'+plan);
-    const pel = document.getElementById('period-'+plan);
-    if(el) el.textContent = sym + price;
-    if(pel) pel.textContent = period;
-  });
-}
-
-function upgradePlan(plan){
-  if(plan==='enterprise'){
-    window.open('mailto:support@upsellboost.app?subject=Enterprise Plan Enquiry','_blank');
-    return;
+  var ct = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
+  var labels = {'any':'Any order','product':'Contains product','category':'Product category','order_value':'Order value above','cod':'COD order','returning':'Returning customer','first_time':'First-time customer','low_stock':'Low stock + variant'};
+  var condText = labels[ct] || ct;
+  if (ct === 'product') {
+    var tp = document.getElementById('product-trigger-sel-' + n);
+    if (tp && tp.value) condText = 'Contains "' + tp.options[tp.selectedIndex].text + '"';
+  } else if (ct === 'order_value') {
+    var v = document.getElementById('rv-' + n);
+    if (v && v.value) condText = 'Order above ' + v.value;
+  } else if (ct === 'category') {
+    var v = document.getElementById('rv-' + n);
+    if (v && v.value) condText = 'Category: ' + v.value;
+  } else if (ct === 'low_stock') {
+    var tp = document.getElementById('trigger-product-' + n);
+    if (tp && tp.value) condText = 'Low stock: ' + tp.options[tp.selectedIndex].text;
   }
-  const shop = getShop();
-  if(!shop){ showToast('Please open this from your Shopify admin'); return; }
-  window.location.href = '/billing/create?shop='+encodeURIComponent(shop)+'&plan='+plan;
+  var p1 = document.getElementById('rp-' + n);
+  var actionText = 'No product selected';
+  if (p1 && p1.value) {
+    actionText = p1.options[p1.selectedIndex].text;
+    var p2 = document.getElementById('rp2-' + n);
+    var p3 = document.getElementById('rp3-' + n);
+    var extras = (p2 && p2.value ? 1 : 0) + (p3 && p3.value ? 1 : 0);
+    if (extras > 0) actionText += ' +' + extras + ' more';
+    var disc = document.getElementById('rd-' + n);
+    actionText += ' at ' + (disc ? disc.value : 15) + '% off';
+  }
+  var te = document.querySelector('#rule-' + n + ' .rule-summary-title');
+  var se = document.querySelector('#rule-' + n + ' .rule-summary-sub');
+  if (te) te.textContent = 'IF ' + condText;
+  if (se) se.textContent = 'THEN -- ' + actionText;
 }
 
-// -- AFFILIATE --
-function calcAffiliate(){
-  const count=parseInt(document.getElementById('aff-count')?.value||5);
-  const plan=parseFloat(document.getElementById('aff-plan')?.value||24.99);
-  const monthly=Math.round(count*plan*0.20);
-  const annual=monthly*12;
-  const el1=document.getElementById('aff-monthly'), el2=document.getElementById('aff-annual'), el3=document.getElementById('aff-desc');
-  if(el1) el1.textContent='$'+monthly.toLocaleString();
-  if(el2) el2.textContent='$'+annual.toLocaleString();
-  if(el3) el3.textContent=count+' merchants × $'+plan+' × 20%';
+function toggleRule(n) { var c = document.getElementById('rule-' + n); if (c) c.classList.toggle('rule-expanded'); }
+
+function duplicateRule(n) {
+  var cv = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : '';
+  var p1v = document.getElementById('rp-' + n) ? document.getElementById('rp-' + n).value : '';
+  var p2v = document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value : '';
+  var p3v = document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value : '';
+  var dv = document.getElementById('rd-' + n) ? document.getElementById('rd-' + n).value : '15';
+  addRule();
+  var newN = ruleCount;
+  setTimeout(function() {
+    var nc = document.getElementById('rc-' + newN);
+    if (nc && cv) { nc.value = cv; updateConditionUI(newN); }
+    if (document.getElementById('rp-' + newN) && p1v) document.getElementById('rp-' + newN).value = p1v;
+    if (document.getElementById('rp2-' + newN) && p2v) document.getElementById('rp2-' + newN).value = p2v;
+    if (document.getElementById('rp3-' + newN) && p3v) document.getElementById('rp3-' + newN).value = p3v;
+    if (document.getElementById('rd-' + newN) && dv) document.getElementById('rd-' + newN).value = dv;
+    updateRuleSummary(newN);
+    showToast('Rule duplicated');
+  }, 150);
 }
 
-function joinAffiliate(){
-  const name=document.getElementById('aff-name')?.value, email=document.getElementById('aff-email')?.value, phone=document.getElementById('aff-phone')?.value;
-  if(!name||!email||!phone){showToast('Please fill in your name, email and WhatsApp number');return;}
-  showToast('Application submitted! We\'ll WhatsApp your affiliate link within 24 hours ??');
-  ['aff-name','aff-email','aff-phone'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+function deleteRule(n) {
+  var el = document.getElementById('rule-' + n);
+  if (el) { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; setTimeout(function(){ el.remove(); }, 200); }
 }
 
-// -- DATA LOADERS --
-async function loadProducts(){
-  try{ const r=await fetch(apiUrl('/api/products')); if(!r.ok) throw new Error(); const d=await r.json(); products=d.products||[]; document.querySelectorAll('select.rule-product,#default-product').forEach(s=>{const cur=s.value;s.innerHTML='<option value="">Select product...</option>'+products.map(p=>`<option value="${p.id}">${p.title}</option>`).join('');if(cur)s.value=cur;}); } catch(e){ products=[{id:'1',title:'Sample A'},{id:'2',title:'Sample B'}]; }
+function addRule() {
+  ruleCount++;
+  var n = ruleCount;
+  var container = document.getElementById('rules-container');
+  var div = document.createElement('div');
+  div.className = 'rule-card rule-expanded';
+  div.id = 'rule-' + n;
+  var po = '';
+  products.forEach(function(p){ po += '<option value="' + p.id + '">' + p.title + '</option>'; });
+  div.innerHTML = '<div class="rule-summary-row" onclick="toggleRule(' + n + ')"><div class="rule-num">' + n + '</div><div class="rule-summary-text"><div class="rule-summary-title">IF Any order</div><div class="rule-summary-sub">THEN -- No product selected</div></div><span class="rule-status">Active</span><div class="rule-actions" onclick="event.stopPropagation()"><button class="rule-btn rule-btn-dup" onclick="duplicateRule(' + n + ')" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><button class="rule-btn rule-btn-del" onclick="deleteRule(' + n + ')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></div><svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></div><div class="rule-fields"><div class="rule-section-label">IF -- Condition</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label class="form-label" style="font-size:11px">Trigger condition</label><select class="form-select" id="rc-' + n + '" onchange="updateConditionUI(' + n + ')"><option value="any">Any order -- always trigger</option><option value="product">Cart contains specific product</option><option value="category">Cart contains product category</option><option value="order_value">Order value is above amount</option><option value="cod">Cash on delivery order</option><option value="returning">Returning customer</option><option value="first_time">First-time customer</option><option value="low_stock">Low stock + variant in cart</option></select></div><div><label class="form-label" style="font-size:11px">Timing</label><select class="form-select"><option>Show immediately</option><option>Show after 3s</option></select></div></div><div id="product-trigger-row-' + n + '" style="display:none;margin-bottom:10px;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE"><label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label><select class="form-select" id="product-trigger-sel-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">Select product...</option>' + po + '</select></div><div id="val-row-' + n + '" style="display:none;margin-bottom:10px"><label class="form-label" style="font-size:11px">Value</label><input type="text" class="form-input" placeholder="e.g. 500" id="rv-' + n + '" oninput="updateRuleSummary(' + n + ')"></div><div id="variant-row-' + n + '" style="display:none;margin-bottom:12px;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A"><div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:10px">Which product+variant triggers this?</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">Trigger product</label><select class="form-select" id="trigger-product-' + n + '" onchange="updateVariantSelector(' + n + ')"><option value="">Select...</option>' + po + '</select></div><div><label class="form-label" style="font-size:11px">Variant</label><select class="form-select" id="trigger-variant-' + n + '"><option value="">Select product first...</option></select></div><div><label class="form-label" style="font-size:11px">Stock threshold</label><input type="number" class="form-input" id="rv-' + n + '" value="5" min="1" oninput="updateRuleSummary(' + n + ')"></div></div></div><div class="rule-section-label">THEN -- Upsell products (up to 3)</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="form-label" style="font-size:11px">Product 1 <span style="color:var(--red)">required</span></label><select class="form-select rule-product" id="rp-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">Select product...</option>' + po + '</select></div><div><label class="form-label" style="font-size:11px">Product 2 optional</label><select class="form-select" id="rp2-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">None</option>' + po + '</select></div><div><label class="form-label" style="font-size:11px">Product 3 optional</label><select class="form-select" id="rp3-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">None</option>' + po + '</select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">Discount</label><div class="input-group"><input type="number" class="form-input" id="rd-' + n + '" value="15" min="1" max="90" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">% off</span></div></div><div><label class="form-label" style="font-size:11px">Display location</label><select class="form-select"><option>Cart + post-purchase popup</option><option>Cart only</option><option>Post-purchase popup only</option></select></div></div></div>';
+  container.appendChild(div);
+  showToast('Rule ' + n + ' added -- fill in the details and save!');
 }
 
-async function loadProductsWithVariants(){
-  try{ const r=await fetch(apiUrl('/api/products-with-variants')); if(r.ok){const d=await r.json();productsWithVariants=d.products||[];} } catch(e){}
+async function saveRules() {
+  var rules = [];
+  document.querySelectorAll('.rule-card').forEach(function(card, i) {
+    var n = card.id.split('-')[1];
+    var ctRaw = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
+    var ctMap = {'any':'any','product':'contains_product','category':'product_category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
+    var ct = ctMap[ctRaw] || ctRaw;
+    var ps = document.getElementById('rp-' + n);
+    var disc = document.getElementById('rd-' + n) ? document.getElementById('rd-' + n).value : '15';
+    var cv = null;
+    if (ct === 'low_stock') {
+      var tp = document.getElementById('trigger-product-' + n) ? document.getElementById('trigger-product-' + n).value : '';
+      var tv = document.getElementById('trigger-variant-' + n) ? document.getElementById('trigger-variant-' + n).value : '';
+      var th = document.getElementById('rv-' + n) ? document.getElementById('rv-' + n).value : '5';
+      cv = tp + ':' + tv + ':' + th;
+    } else if (ct === 'contains_product') {
+      cv = document.getElementById('product-trigger-sel-' + n) ? document.getElementById('product-trigger-sel-' + n).value : null;
+    } else {
+      cv = document.getElementById('rv-' + n) ? document.getElementById('rv-' + n).value : null;
+    }
+    if (ps && ps.value) {
+      rules.push({id: String(i+1), condition: ct, condition_val: cv, condition_label: ctRaw.replace(/_/g, ' '), product_id: ps.value, product_id2: document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value : null, product_id3: document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value : null, product_name: ps.options[ps.selectedIndex].text, discount: parseInt(disc)});
+    }
+  });
+  S.rules = rules;
+  document.getElementById('offer-count').textContent = rules.length;
+  try {
+    var r = await fetch(apiUrl('/api/rules'), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({rules: rules, shop: getShop()})});
+    var d = await r.json();
+    if (d.success) showToast('Rules saved & activated!');
+    else showToast('Saved locally -- check server');
+  } catch(e) { showToast('Saved locally'); }
 }
 
-async function loadStore(){
-  try{ const r=await fetch(apiUrl('/api/store')); if(r.ok){const d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store';
-    if(d.domain) localStorage.setItem('ub2_shop', d.domain);
-    if(d.currency) { setCurrencySymbol(currencySymbol(d.currency)); }} } catch(e){ document.getElementById('store-domain').textContent='dev store'; }
+function previewRules() {
+  var t = document.querySelector('.rule-summary-title');
+  showToast(t ? t.textContent : 'No rules yet -- add one first!');
 }
 
-async function loadEvents(){
-  try{ const r=await fetch(apiUrl('/api/events')); if(r.ok){const d=await r.json();S.events=d.events||[];} } catch(e){}
+function renderAnalytics() {
+  var e = S.events;
+  var acc = e.filter(function(x){ return x.accepted; });
+  var rev = acc.reduce(function(s, x){ return s + (x.revenue || 0); }, 0);
+  var rate = e.length ? Math.round(acc.length / e.length * 100) : 0;
+  var avg = acc.length ? Math.round(rev / acc.length) : 0;
+  var sym = getCurrencySymbol();
+  document.getElementById('a-revenue').textContent = sym + rev.toLocaleString();
+  document.getElementById('a-rate').textContent = rate + '%';
+  document.getElementById('a-customers').textContent = new Set(e.map(function(x){ return x.order_id; })).size;
+  document.getElementById('a-avg').textContent = sym + avg.toLocaleString();
+  var tbody = document.getElementById('all-events-table');
+  if (e.length === 0) return;
+  var rows = '';
+  e.slice().reverse().forEach(function(x) {
+    rows += '<tr><td class="mono">#' + x.order_id + '</td><td>' + (x.product_name || '--') + '</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">' + (x.trigger_rule || 'all') + '</span></td><td>' + (x.channel || 'post-purchase') + '</td><td>' + (x.accepted ? '<span class="badge badge-green">Accepted</span>' : '<span class="badge badge-gray">Declined</span>') + '</td><td style="color:' + (x.accepted ? 'var(--green-d)' : 'var(--soft)') + '">' + (x.accepted ? '+' + sym + x.revenue : '--') + '</td><td style="color:var(--muted);font-size:12px">' + new Date(x.date).toLocaleDateString() + '</td></tr>';
+  });
+  tbody.innerHTML = rows;
 }
 
-async function loadSettings(){
-  try{ const r=await fetch(apiUrl('/api/settings')); if(r.ok){ const d=await r.json(); const s=d.settings||{}; S.settings=s; const tt=document.getElementById('timer-toggle'), tm=document.getElementById('timer-minutes'); if(tt&&s.timer_enabled) tt.classList.add('on'); if(tm&&s.timer_minutes) tm.value=s.timer_minutes; } } catch(e){}
+function saveWA() { showToast('WhatsApp settings saved'); }
+
+async function saveSettings() {
+  var tt = document.getElementById('timer-toggle');
+  var tm = document.getElementById('timer-minutes');
+  var settings = {timer_enabled: tt ? tt.classList.contains('on') : false, timer_minutes: tm ? parseInt(tm.value) || 10 : 10, shop: getShop()};
+  S.settings = settings;
+  try {
+    await fetch(apiUrl('/api/settings'), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(settings)});
+    showToast('Settings saved');
+  } catch(e) { showToast('Settings saved locally'); }
 }
 
-async function loadRules(){
-  try{
-    const r=await fetch(apiUrl('/api/rules'));
-    if(r.ok){
-      const d=await r.json(); S.rules=d.rules||[]; document.getElementById('offer-count').textContent=S.rules.length;
-      S.rules.forEach(rule=>{
-        addRule(); const n=ruleCount;
-        setTimeout(()=>{
-          const cm={'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
-          const cs=document.getElementById('rc-'+n); if(cs){cs.value=cm[rule.condition]||'any';updateConditionUI(n);}
-          const p1=document.getElementById('rp-'+n); if(p1) p1.value=rule.product_id||'';
-          const p2=document.getElementById('rp2-'+n); if(p2&&rule.product_id2) p2.value=rule.product_id2;
-          const p3=document.getElementById('rp3-'+n); if(p3&&rule.product_id3) p3.value=rule.product_id3;
-          const di=document.getElementById('rd-'+n); if(di) di.value=rule.discount||15;
-          if(rule.condition==='low_stock'&&rule.condition_val){ const parts=rule.condition_val.split(':'); const tp=document.getElementById('trigger-product-'+n); if(tp&&parts[0]){tp.value=parts[0];updateVariantSelector(n);setTimeout(()=>{const tv=document.getElementById('trigger-variant-'+n);if(tv&&parts[1])tv.value=parts[1];},300);} const vi=document.getElementById('rv-'+n); if(vi&&parts[2]) vi.value=parts[2]; }
-          else if(rule.condition==='contains_product'){ const pts=document.getElementById('product-trigger-sel-'+n); if(pts&&rule.condition_val) pts.value=rule.condition_val; }
-          else{ const vi=document.getElementById('rv-'+n); if(vi) vi.value=rule.condition_val||''; }
+function updatePrices() {
+  var isAnnual = currentBilling === 'annual';
+  var period = isAnnual ? 'per month, billed annually' : 'per month';
+  ['basic','pro','enterprise'].forEach(function(plan) {
+    var m = PRICES[plan];
+    var price = isAnnual ? +(m * 10 / 12).toFixed(2) : m;
+    var el = document.getElementById('price-' + plan);
+    var pel = document.getElementById('period-' + plan);
+    if (el) el.textContent = '$' + price;
+    if (pel) pel.textContent = period;
+  });
+}
+
+function setBilling(b) {
+  currentBilling = b;
+  ['monthly','annual'].forEach(function(x) {
+    var el = document.getElementById('bill-' + x);
+    if (el) { el.style.background = b === x ? 'var(--navy)' : 'transparent'; el.style.color = b === x ? 'var(--green)' : 'var(--muted)'; }
+  });
+  updatePrices();
+}
+
+function upgradePlan(plan) {
+  if (plan === 'enterprise') { window.open('mailto:support@upsellboost.app?subject=Enterprise Plan', '_blank'); return; }
+  var shop = getShop();
+  if (!shop) { showToast('Please open this from your Shopify admin'); return; }
+  window.location.href = '/billing/create?shop=' + encodeURIComponent(shop) + '&plan=' + plan;
+}
+
+function calcAffiliate() {
+  var count = parseInt(document.getElementById('aff-count') ? document.getElementById('aff-count').value : 5) || 5;
+  var plan = parseFloat(document.getElementById('aff-plan') ? document.getElementById('aff-plan').value : 24.99) || 24.99;
+  var monthly = Math.round(count * plan * 0.20 * 100) / 100;
+  var annual = Math.round(monthly * 12 * 100) / 100;
+  var el1 = document.getElementById('aff-monthly');
+  var el2 = document.getElementById('aff-annual');
+  var el3 = document.getElementById('aff-desc');
+  if (el1) el1.textContent = '$' + monthly.toFixed(2);
+  if (el2) el2.textContent = '$' + annual.toFixed(2);
+  if (el3) el3.textContent = count + ' merchants x $' + plan + ' x 20%';
+}
+
+function joinAffiliate() {
+  var name = document.getElementById('aff-name') ? document.getElementById('aff-name').value : '';
+  var email = document.getElementById('aff-email') ? document.getElementById('aff-email').value : '';
+  var phone = document.getElementById('aff-phone') ? document.getElementById('aff-phone').value : '';
+  if (!name || !email || !phone) { showToast('Please fill in your name, email and WhatsApp number'); return; }
+  showToast('Application submitted! We will contact you within 24 hours.');
+  ['aff-name','aff-email','aff-phone'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+async function loadProducts() {
+  try {
+    var r = await fetch(apiUrl('/api/products'));
+    if (!r.ok) throw new Error();
+    var d = await r.json();
+    products = d.products || [];
+    document.querySelectorAll('select.rule-product, #default-product').forEach(function(s) {
+      var cur = s.value;
+      var html = '<option value="">Select product...</option>';
+      products.forEach(function(p){ html += '<option value="' + p.id + '">' + p.title + '</option>'; });
+      s.innerHTML = html;
+      if (cur) s.value = cur;
+    });
+  } catch(e) { products = [{id:'1',title:'Sample A'},{id:'2',title:'Sample B'}]; }
+}
+
+async function loadProductsWithVariants() {
+  try {
+    var r = await fetch(apiUrl('/api/products-with-variants'));
+    if (r.ok) { var d = await r.json(); productsWithVariants = d.products || []; }
+  } catch(e) {}
+}
+
+async function loadStore() {
+  try {
+    var r = await fetch(apiUrl('/api/store'));
+    if (r.ok) {
+      var d = await r.json();
+      document.getElementById('store-domain').textContent = d.domain || 'dev store';
+      if (d.domain) localStorage.setItem('ub2_shop', d.domain);
+      if (d.currency) saveCurrencySymbol(d.currency);
+    }
+  } catch(e) { document.getElementById('store-domain').textContent = 'dev store'; }
+}
+
+async function loadEvents() {
+  try {
+    var r = await fetch(apiUrl('/api/events'));
+    if (r.ok) { var d = await r.json(); S.events = d.events || []; }
+  } catch(e) {}
+}
+
+async function loadSettings() {
+  try {
+    var r = await fetch(apiUrl('/api/settings'));
+    if (r.ok) {
+      var d = await r.json();
+      var s = d.settings || {};
+      S.settings = s;
+      var tt = document.getElementById('timer-toggle');
+      var tm = document.getElementById('timer-minutes');
+      if (tt && s.timer_enabled) tt.classList.add('on');
+      if (tm && s.timer_minutes) tm.value = s.timer_minutes;
+    }
+  } catch(e) {}
+}
+
+async function loadRules() {
+  try {
+    var r = await fetch(apiUrl('/api/rules'));
+    if (r.ok) {
+      var d = await r.json();
+      S.rules = d.rules || [];
+      document.getElementById('offer-count').textContent = S.rules.length;
+      S.rules.forEach(function(rule) {
+        addRule();
+        var n = ruleCount;
+        setTimeout(function() {
+          var cm = {'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
+          var cs = document.getElementById('rc-' + n);
+          if (cs) { cs.value = cm[rule.condition] || 'any'; updateConditionUI(n); }
+          var p1 = document.getElementById('rp-' + n); if (p1) p1.value = rule.product_id || '';
+          var p2 = document.getElementById('rp2-' + n); if (p2 && rule.product_id2) p2.value = rule.product_id2;
+          var p3 = document.getElementById('rp3-' + n); if (p3 && rule.product_id3) p3.value = rule.product_id3;
+          var di = document.getElementById('rd-' + n); if (di) di.value = rule.discount || 15;
+          if (rule.condition === 'low_stock' && rule.condition_val) {
+            var parts = rule.condition_val.split(':');
+            var tp = document.getElementById('trigger-product-' + n);
+            if (tp && parts[0]) { tp.value = parts[0]; updateVariantSelector(n); }
+            var vi = document.getElementById('rv-' + n); if (vi && parts[2]) vi.value = parts[2];
+          } else if (rule.condition === 'contains_product') {
+            var pts = document.getElementById('product-trigger-sel-' + n);
+            if (pts && rule.condition_val) pts.value = rule.condition_val;
+          } else {
+            var vi = document.getElementById('rv-' + n);
+            if (vi) vi.value = rule.condition_val || '';
+          }
           updateRuleSummary(n);
-          const card=document.getElementById('rule-'+n); if(card) card.classList.remove('rule-expanded');
-        },400);
+          var card = document.getElementById('rule-' + n);
+          if (card) card.classList.remove('rule-expanded');
+        }, 400);
       });
     }
-  } catch(e){}
+  } catch(e) {}
 }
 
-window.addEventListener('load', async()=>{
-  setGreeting(); buildChart();
-  await loadStore(); await loadProducts(); await loadProductsWithVariants(); await loadEvents(); await loadSettings(); await loadRules();
+window.addEventListener('load', async function() {
+  setGreeting();
+  buildChart();
+  await loadStore();
+  await loadProducts();
+  await loadProductsWithVariants();
+  await loadEvents();
+  await loadSettings();
+  await loadRules();
   renderDashboard();
-  if(!localStorage.getItem('ub2_tour_never')) setTimeout(()=>startTour(),800);
+  if (!localStorage.getItem('ub2_tour_never')) setTimeout(function(){ startTour(); }, 800);
 });
+
 </script>
 
 <!-- FOOTER -->
