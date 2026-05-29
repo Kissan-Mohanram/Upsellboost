@@ -447,20 +447,27 @@ app.post('/api/offer', async (req, res) => {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
       case 'out_of_stock':
-        // Triggers when customer views a sold-out product page
+        // Triggers when customer is on a sold-out product page
         // condition_val = product_id of the out-of-stock product
+        // req.body.trigger === 'out_of_stock' when called from OOS popup JS
+        // req.body.oos_product_id = current product page ID
         try {
-          if (rule.condition_val) {
-            const oosData = await shopifyFetch(shopDomain, `/products/${rule.condition_val}.json`);
-            const oosProduct = oosData.product;
-            if (oosProduct) {
-              const allOutOfStock = oosProduct.variants.every(v => v.inventory_quantity <= 0);
-              const isInCart = cartIds.includes(String(rule.condition_val));
-              // Trigger if product is OOS and customer is viewing/has interacted with it
-              if (allOutOfStock || isInCart) matchedRule = rule;
+          const reqTrigger = req.body.trigger;
+          const oosProductId = req.body.oos_product_id;
+          if (reqTrigger === 'out_of_stock') {
+            // Direct OOS trigger from product page
+            if (!rule.condition_val || String(rule.condition_val) === String(oosProductId)) {
+              matchedRule = rule;
             }
+          } else if (rule.condition_val) {
+            // Fallback: check if OOS product is in cart items
+            const isInCart = cartIds.includes(String(rule.condition_val));
+            if (isInCart) matchedRule = rule;
+          } else {
+            // No specific product set — match all OOS triggers
+            matchedRule = rule;
           }
-        } catch(e) {}
+        } catch(e) { console.error('OOS match error:', e.message); }
         break;
       case 'deadstock':
         // Triggers always - pushes slow-moving product to everyone in cart
@@ -549,20 +556,27 @@ app.post('/api/offer-multi', async (req, res) => {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
       case 'out_of_stock':
-        // Triggers when customer views a sold-out product page
+        // Triggers when customer is on a sold-out product page
         // condition_val = product_id of the out-of-stock product
+        // req.body.trigger === 'out_of_stock' when called from OOS popup JS
+        // req.body.oos_product_id = current product page ID
         try {
-          if (rule.condition_val) {
-            const oosData = await shopifyFetch(shopDomain, `/products/${rule.condition_val}.json`);
-            const oosProduct = oosData.product;
-            if (oosProduct) {
-              const allOutOfStock = oosProduct.variants.every(v => v.inventory_quantity <= 0);
-              const isInCart = cartIds.includes(String(rule.condition_val));
-              // Trigger if product is OOS and customer is viewing/has interacted with it
-              if (allOutOfStock || isInCart) matchedRule = rule;
+          const reqTrigger = req.body.trigger;
+          const oosProductId = req.body.oos_product_id;
+          if (reqTrigger === 'out_of_stock') {
+            // Direct OOS trigger from product page
+            if (!rule.condition_val || String(rule.condition_val) === String(oosProductId)) {
+              matchedRule = rule;
             }
+          } else if (rule.condition_val) {
+            // Fallback: check if OOS product is in cart items
+            const isInCart = cartIds.includes(String(rule.condition_val));
+            if (isInCart) matchedRule = rule;
+          } else {
+            // No specific product set — match all OOS triggers
+            matchedRule = rule;
           }
-        } catch(e) {}
+        } catch(e) { console.error('OOS match error:', e.message); }
         break;
       case 'deadstock':
         // Triggers always - pushes slow-moving product to everyone in cart
