@@ -758,21 +758,29 @@ function updateVariantSelector(n) {
 
 function updateRuleSummary(n) {
   var ct = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
-  var labels = {'any':'Any order','product':'Contains product','category':'Product category','order_value':'Order value above','cod':'COD order','returning':'Returning customer','first_time':'First-time customer','low_stock':'Low stock + variant'};
+  var labels = {'any':'Any order','product':'Contains product','order_value':'Order value above','category':'Category contains','cod':'COD order','low_stock':'Low stock alert','out_of_stock':'Out of stock product','deadstock':'Slow-moving product'};
   var condText = labels[ct] || ct;
+
   if (ct === 'product') {
-    var tp = document.getElementById('product-trigger-sel-' + n);
-    if (tp && tp.value) condText = 'Contains "' + tp.options[tp.selectedIndex].text + '"';
-  } else if (ct === 'order_value') {
-    var v = document.getElementById('rv-' + n);
-    if (v && v.value) condText = 'Order above ' + v.value;
-  } else if (ct === 'category') {
-    var v = document.getElementById('rv-' + n);
-    if (v && v.value) condText = 'Category: ' + v.value;
-  } else if (ct === 'low_stock') {
     var tp = document.getElementById('trigger-product-' + n);
-    if (tp && tp.value) condText = 'Low stock: ' + tp.options[tp.selectedIndex].text;
+    if (tp && tp.value) condText = 'Cart has "' + tp.options[tp.selectedIndex].text + '"';
+  } else if (ct === 'order_value') {
+    var rv = document.getElementById('rv-' + n);
+    if (rv && rv.value) condText = 'Cart total above ' + rv.value;
+  } else if (ct === 'category') {
+    var cat = document.getElementById('cat-' + n);
+    if (cat && cat.value) condText = 'Category: ' + cat.value;
+  } else if (ct === 'low_stock') {
+    var lsp = document.getElementById('ls-product-' + n);
+    var lsv = document.getElementById('ls-variant-' + n);
+    var lst = document.getElementById('ls-threshold-' + n);
+    if (lsp && lsp.value) {
+      condText = lsp.options[lsp.selectedIndex].text;
+      if (lsv && lsv.value) condText += ' / ' + lsv.options[lsv.selectedIndex].text;
+      condText += ' stock < ' + (lst ? lst.value : 5);
+    }
   }
+
   var p1 = document.getElementById('rp-' + n);
   var actionText = 'No product selected';
   if (p1 && p1.value) {
@@ -784,11 +792,22 @@ function updateRuleSummary(n) {
     var disc = document.getElementById('rd-' + n);
     actionText += ' at ' + (disc ? disc.value : 15) + '% off';
   }
+  if (ct === 'out_of_stock') {
+    var oop = document.getElementById('oos-product-' + n);
+    if (oop && oop.value) condText = '"' + oop.options[oop.selectedIndex].text + '" is out of stock';
+    else condText = 'Product is out of stock';
+  } else if (ct === 'deadstock') {
+    var dsp = document.getElementById('ds-product-' + n);
+    var dsd = document.getElementById('ds-days-' + n);
+    if (dsp && dsp.value) condText = '"' + dsp.options[dsp.selectedIndex].text + '" slow-moving (' + (dsd ? dsd.value : 30) + ' days)';
+    else condText = 'Slow-moving product';
+  }
   var te = document.querySelector('#rule-' + n + ' .rule-summary-title');
   var se = document.querySelector('#rule-' + n + ' .rule-summary-sub');
   if (te) te.textContent = 'IF ' + condText;
   if (se) se.textContent = 'THEN -- ' + actionText;
 }
+
 
 function toggleRule(n) { var c = document.getElementById('rule-' + n); if (c) c.classList.toggle('rule-expanded'); }
 
@@ -824,46 +843,260 @@ function addRule() {
   var div = document.createElement('div');
   div.className = 'rule-card rule-expanded';
   div.id = 'rule-' + n;
-  var po = '';
+  var po = '<option value="">Select product...</option>';
   products.forEach(function(p){ po += '<option value="' + p.id + '">' + p.title + '</option>'; });
-  div.innerHTML = '<div class="rule-summary-row" onclick="toggleRule(' + n + ')"><div class="rule-num">' + n + '</div><div class="rule-summary-text"><div class="rule-summary-title">IF Any order</div><div class="rule-summary-sub">THEN -- No product selected</div></div><span class="rule-status">Active</span><div class="rule-actions" onclick="event.stopPropagation()"><button class="rule-btn rule-btn-dup" onclick="duplicateRule(' + n + ')" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><button class="rule-btn rule-btn-del" onclick="deleteRule(' + n + ')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></div><svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></div><div class="rule-fields"><div class="rule-section-label">IF -- Condition</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label class="form-label" style="font-size:11px">Trigger condition</label><select class="form-select" id="rc-' + n + '" onchange="updateConditionUI(' + n + ')"><option value="any">Any order -- always trigger</option><option value="product">Cart contains specific product</option><option value="category">Cart contains product category</option><option value="order_value">Order value is above amount</option><option value="cod">Cash on delivery order</option><option value="returning">Returning customer</option><option value="first_time">First-time customer</option><option value="low_stock">Low stock + variant in cart</option></select></div><div><label class="form-label" style="font-size:11px">Timing</label><select class="form-select"><option>Show immediately</option><option>Show after 3s</option></select></div></div><div id="product-trigger-row-' + n + '" style="display:none;margin-bottom:10px;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE"><label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label><select class="form-select" id="product-trigger-sel-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">Select product...</option>' + po + '</select></div><div id="val-row-' + n + '" style="display:none;margin-bottom:10px"><label class="form-label" style="font-size:11px">Value</label><input type="text" class="form-input" placeholder="e.g. 500" id="rv-' + n + '" oninput="updateRuleSummary(' + n + ')"></div><div id="variant-row-' + n + '" style="display:none;margin-bottom:12px;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A"><div style="font-size:11px;font-weight:700;color:#92400E;margin-bottom:10px">Which product+variant triggers this?</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">Trigger product</label><select class="form-select" id="trigger-product-' + n + '" onchange="updateVariantSelector(' + n + ')"><option value="">Select...</option>' + po + '</select></div><div><label class="form-label" style="font-size:11px">Variant</label><select class="form-select" id="trigger-variant-' + n + '"><option value="">Select product first...</option></select></div><div><label class="form-label" style="font-size:11px">Stock threshold</label><input type="number" class="form-input" id="rv-' + n + '" value="5" min="1" oninput="updateRuleSummary(' + n + ')"></div></div></div><div class="rule-section-label">THEN -- Upsell products (up to 3)</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="form-label" style="font-size:11px">Product 1 <span style="color:var(--red)">required</span></label><select class="form-select rule-product" id="rp-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">Select product...</option>' + po + '</select></div><div><label class="form-label" style="font-size:11px">Product 2 optional</label><select class="form-select" id="rp2-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">None</option>' + po + '</select></div><div><label class="form-label" style="font-size:11px">Product 3 optional</label><select class="form-select" id="rp3-' + n + '" onchange="updateRuleSummary(' + n + ')"><option value="">None</option>' + po + '</select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">Discount</label><div class="input-group"><input type="number" class="form-input" id="rd-' + n + '" value="15" min="1" max="90" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">% off</span></div></div><div><label class="form-label" style="font-size:11px">Display location</label><select class="form-select"><option>Cart + post-purchase popup</option><option>Cart only</option><option>Post-purchase popup only</option></select></div></div></div>';
+
+  div.innerHTML =
+    // -- COLLAPSED SUMMARY ROW --
+    '<div class="rule-summary-row" onclick="toggleRule(' + n + ')">' +
+      '<div class="rule-num">' + n + '</div>' +
+      '<div class="rule-summary-text">' +
+        '<div class="rule-summary-title">IF Any order</div>' +
+        '<div class="rule-summary-sub">THEN -- No product selected</div>' +
+      '</div>' +
+      '<span class="rule-status">Active</span>' +
+      '<div class="rule-actions" onclick="event.stopPropagation()">' +
+        '<button class="rule-btn rule-btn-dup" onclick="duplicateRule(' + n + ')" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>' +
+        '<button class="rule-btn rule-btn-del" onclick="deleteRule(' + n + ')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
+      '</div>' +
+      '<svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>' +
+    '</div>' +
+
+    // -- EXPANDED FIELDS --
+    '<div class="rule-fields">' +
+
+      // STEP 1: WHEN
+      '<div style="margin-bottom:18px">' +
+        '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">When should the upsell appear?</div>' +
+        '<select class="form-select" id="rc-' + n + '" onchange="onConditionChange(' + n + ')" style="margin-bottom:10px">' +
+          '<option value="any">Every order -- always show this upsell to everyone</option>' +
+          '<option value="product">Customer added a specific product to cart</option>' +
+          '<option value="order_value">Cart total is above a certain amount</option>' +
+          '<option value="category">Cart has a product from a specific category</option>' +
+          '<option value="out_of_stock">Customer is viewing a sold-out product page</option>' +
+          '<option value="deadstock">Push a slow-moving product with a discount</option>' +
+          '<option value="cod">Customer chose Cash on Delivery</option>' +
+          '<option value="low_stock">A product is almost sold out (show urgency badge)</option>' +
+        '</select>' +
+
+        // CONDITION: specific product in cart
+        '<div id="cond-product-' + n + '" style="display:none;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE">' +
+          '<label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label>' +
+          '<select class="form-select" id="trigger-product-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
+            '<option value="">Select product...</option>' + po +
+          '</select>' +
+        '</div>' +
+
+        // CONDITION: order value
+        '<div id="cond-value-' + n + '" style="display:none;background:#F0FDF4;border-radius:8px;padding:12px;border:1px solid #BBF7D0">' +
+          '<label class="form-label" style="font-size:11px;color:#166534">Show upsell when cart total is above</label>' +
+          '<div class="input-group"><input type="number" class="form-input" id="rv-' + n + '" placeholder="e.g. 50" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">in store currency</span></div>' +
+        '</div>' +
+
+        // CONDITION: category
+        '<div id="cond-category-' + n + '" style="display:none;background:#FFF7ED;border-radius:8px;padding:12px;border:1px solid #FED7AA">' +
+          '<label class="form-label" style="font-size:11px;color:#9A3412">Product category keyword (e.g. t-shirt, shoes)</label>' +
+          '<input type="text" class="form-input" id="cat-' + n + '" placeholder="e.g. t-shirt" oninput="updateRuleSummary(' + n + ')">' +
+        '</div>' +
+
+        // CONDITION: low stock
+        '<div id="cond-lowstock-' + n + '" style="display:none;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A">' +
+          '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px">Which product is almost sold out?</div><div style="font-size:12px;color:#B45309;line-height:1.6">When your stock of this product drops below the number you set, we will automatically show an urgency message like <b>"Only 3 left!"</b> on the upsell offer.</div></div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Which product?</label>' +
+              '<select class="form-select" id="ls-product-' + n + '" onchange="onLowStockProductChange(' + n + ')">' +
+                '<option value="">Select product...</option>' + po +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Which size/color? (optional)</label>' +
+              '<select class="form-select" id="ls-variant-' + n + '">' +
+                '<option value="">Select product first</option>' +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Show urgency when less than</label>' +
+              '<div class="input-group"><input type="number" class="form-input" id="ls-threshold-' + n + '" value="5" min="1" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">units</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div style=\"margin-top:12px;padding:10px 12px;background:white;border-radius:8px;border:1px solid #FDE68A\">' +
+            '<div style=\"font-size:12px;font-weight:600;color:#92400E;margin-bottom:4px\">What your customer will see:</div>' +
+            '<div style=\"font-size:12px;color:#B45309;line-height:1.6\">When stock of this product drops below your number, the upsell in Step 2 will show a red badge like <b>\"Only 3 left!\"</b> — this creates urgency and pushes customers to buy faster.</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+
+        // CONDITION: out of stock product
+        '<div id="cond-out_of_stock-' + n + '" style="display:none;background:#FEF2F2;border-radius:8px;padding:12px;border:1px solid #FECACA">' +
+          '<div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:4px">Which sold-out product triggers this?</div>' +
+          '<div style="font-size:12px;color:#B91C1C;margin-bottom:10px;line-height:1.6">When a customer visits this product page and it is out of stock, a popup will appear suggesting similar products from Step 2 below.</div>' +
+          '<select class="form-select" id="oos-product-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
+            '<option value="">Select the sold-out product...</option>' + po +
+          '</select>' +
+          '<div style="margin-top:8px;padding:8px;background:white;border-radius:6px;border:1px solid #FECACA;font-size:11px;color:#991B1B">' +
+            'Popup message your customer will see: <b>"This item is out of stock. Check out these similar products!"</b>' +
+          '</div>' +
+        '</div>' +
+
+        // CONDITION: deadstock / slow moving product
+        '<div id="cond-deadstock-' + n + '" style="display:none;background:#F5F3FF;border-radius:8px;padding:12px;border:1px solid #DDD6FE">' +
+          '<div style="font-size:13px;font-weight:600;color:#5B21B6;margin-bottom:4px">Which slow-moving product needs a push?</div>' +
+          '<div style="font-size:12px;color:#6D28D9;margin-bottom:10px;line-height:1.6">This product has been sitting in your inventory. We will show it to customers in the cart with a special discount to help you clear stock faster.</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div>' +
+              '<label class="form-label" style="font-size:11px">The slow-moving product to push</label>' +
+              '<select class="form-select" id="ds-product-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
+                '<option value="">Select product...</option>' + po +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="form-label" style="font-size:11px">Not sold in the last (days)</label>' +
+              '<div class="input-group"><input type="number" class="form-input" id="ds-days-' + n + '" value="30" min="1" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">days</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="margin-top:8px;padding:8px;background:white;border-radius:6px;border:1px solid #DDD6FE;font-size:11px;color:#5B21B6">' +
+            'The discount you set in Step 2 below will automatically apply. Customer sees: <b>"Special deal! Get this while it lasts."</b>' +
+          '</div>' +
+        '</div>' +
+
+      // STEP 2: SHOW
+      '<div style="margin-bottom:18px">' +
+        '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What do you want to offer?</div>' +
+        '<div style="background:var(--green-l);border-radius:8px;padding:12px;border:1px solid rgba(29,201,116,0.2)">' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Offer this product <span style="color:var(--red)">*</span></label>' +
+              '<select class="form-select rule-product" id="rp-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
+                '<option value="">Select product...</option>' + po +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Also offer this one <span style="color:var(--soft)">optional</span></label>' +
+              '<select class="form-select" id="rp2-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
+                '<option value="">None</option>' + po +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Or this one too <span style="color:var(--soft)">optional</span></label>' +
+              '<select class="form-select" id="rp3-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
+                '<option value="">None</option>' + po +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Give them a discount of</label>' +
+              '<div class="input-group"><input type="number" class="form-input" id="rd-' + n + '" value="15" min="1" max="90" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">% off</span></div>' +
+            '</div>' +
+            '<div>' +
+              '<label class="form-label" style="font-size:10px">Where to show this offer</label>' +
+              '<select class="form-select" id="rl-' + n + '">' +
+                '<option value="both">In cart AND after checkout (recommended)</option>' +
+                '<option value="cart">Only in cart (before checkout)</option>' +
+                '<option value="popup">Only after checkout (thank you page)</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '<div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">' +
+        '&#128161; Tip: You can offer up to 3 products. Customers see them as a swipeable carousel and can add any one with a single tap.' +
+      '</div>' +
+      '</div>' +
+
+    '</div>'; // end rule-fields
+
   container.appendChild(div);
-  showToast('Rule ' + n + ' added -- fill in the details and save!');
+  showToast('Rule ' + n + ' added -- select your trigger and upsell product!');
 }
+
+function onConditionChange(n) {
+  var val = document.getElementById('rc-' + n).value;
+  // Hide all condition panels
+  ['product','value','category','lowstock','out_of_stock','deadstock'].forEach(function(type) {
+    var el = document.getElementById('cond-' + type + '-' + n);
+    if (el) el.style.display = 'none';
+  });
+  // Show relevant panel
+  if (val === 'product') document.getElementById('cond-product-' + n).style.display = 'block';
+  else if (val === 'order_value') document.getElementById('cond-value-' + n).style.display = 'block';
+  else if (val === 'category') document.getElementById('cond-category-' + n).style.display = 'block';
+  else if (val === 'low_stock') document.getElementById('cond-lowstock-' + n).style.display = 'block';
+  else if (val === 'out_of_stock') document.getElementById('cond-out_of_stock-' + n).style.display = 'block';
+  else if (val === 'deadstock') document.getElementById('cond-deadstock-' + n).style.display = 'block';
+  updateRuleSummary(n);
+}
+
+function onLowStockProductChange(n) {
+  var ps = document.getElementById('ls-product-' + n);
+  var vs = document.getElementById('ls-variant-' + n);
+  if (!ps || !vs) return;
+  var p = productsWithVariants.find(function(x){ return String(x.id) === String(ps.value); });
+  if (!p || !p.variants) { vs.innerHTML = '<option value="">No variants found</option>'; return; }
+  var opts = '<option value="">All variants</option>';
+  p.variants.forEach(function(v){ opts += '<option value="' + v.id + '">' + v.title + ' (Stock: ' + v.inventory_quantity + ')</option>'; });
+  vs.innerHTML = opts;
+  updateRuleSummary(n);
+}
+
 
 async function saveRules() {
   var rules = [];
   document.querySelectorAll('.rule-card').forEach(function(card, i) {
     var n = card.id.split('-')[1];
     var ctRaw = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
-    var ctMap = {'any':'any','product':'contains_product','category':'product_category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
+    var ctMap = {'any':'any','product':'contains_product','order_value':'order_value','category':'product_category','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};
     var ct = ctMap[ctRaw] || ctRaw;
     var ps = document.getElementById('rp-' + n);
     var disc = document.getElementById('rd-' + n) ? document.getElementById('rd-' + n).value : '15';
+    var loc = document.getElementById('rl-' + n) ? document.getElementById('rl-' + n).value : 'both';
     var cv = null;
-    if (ct === 'low_stock') {
-      var tp = document.getElementById('trigger-product-' + n) ? document.getElementById('trigger-product-' + n).value : '';
-      var tv = document.getElementById('trigger-variant-' + n) ? document.getElementById('trigger-variant-' + n).value : '';
-      var th = document.getElementById('rv-' + n) ? document.getElementById('rv-' + n).value : '5';
-      cv = tp + ':' + tv + ':' + th;
+
+    if (ct === 'out_of_stock') {
+      cv = document.getElementById('oos-product-' + n) ? document.getElementById('oos-product-' + n).value : null;
+    } else if (ct === 'deadstock') {
+      var dsp = document.getElementById('ds-product-' + n) ? document.getElementById('ds-product-' + n).value : '';
+      var dsd = document.getElementById('ds-days-' + n) ? document.getElementById('ds-days-' + n).value : '30';
+      cv = dsp + ':' + dsd;
+    } else if (ct === 'low_stock') {
+      var lsp = document.getElementById('ls-product-' + n) ? document.getElementById('ls-product-' + n).value : '';
+      var lsv = document.getElementById('ls-variant-' + n) ? document.getElementById('ls-variant-' + n).value : '';
+      var lst = document.getElementById('ls-threshold-' + n) ? document.getElementById('ls-threshold-' + n).value : '5';
+      cv = lsp + ':' + lsv + ':' + lst;
     } else if (ct === 'contains_product') {
-      cv = document.getElementById('product-trigger-sel-' + n) ? document.getElementById('product-trigger-sel-' + n).value : null;
-    } else {
+      cv = document.getElementById('trigger-product-' + n) ? document.getElementById('trigger-product-' + n).value : null;
+    } else if (ct === 'order_value') {
       cv = document.getElementById('rv-' + n) ? document.getElementById('rv-' + n).value : null;
+    } else if (ct === 'product_category') {
+      cv = document.getElementById('cat-' + n) ? document.getElementById('cat-' + n).value : null;
     }
+
     if (ps && ps.value) {
-      rules.push({id: String(i+1), condition: ct, condition_val: cv, condition_label: ctRaw.replace(/_/g, ' '), product_id: ps.value, product_id2: document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value : null, product_id3: document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value : null, product_name: ps.options[ps.selectedIndex].text, discount: parseInt(disc)});
+      rules.push({
+        id: String(i + 1),
+        condition: ct,
+        condition_val: cv,
+        condition_label: ctRaw.replace(/_/g, ' '),
+        product_id: ps.value,
+        product_id2: document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value || null : null,
+        product_id3: document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value || null : null,
+        product_name: ps.options[ps.selectedIndex].text,
+        discount: parseInt(disc),
+        display_location: loc
+      });
     }
   });
   S.rules = rules;
   document.getElementById('offer-count').textContent = rules.length;
   try {
-    var r = await fetch(apiUrl('/api/rules'), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({rules: rules, shop: getShop()})});
+    var r = await fetch(apiUrl('/api/rules'), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rules: rules, shop: getShop()})});
     var d = await r.json();
     if (d.success) showToast('Rules saved & activated!');
-    else showToast('Saved locally -- check server');
+    else showToast('Saved -- check server');
   } catch(e) { showToast('Saved locally'); }
 }
+
 
 function previewRules() {
   var t = document.querySelector('.rule-summary-title');
@@ -1022,33 +1255,61 @@ async function loadRules() {
         addRule();
         var n = ruleCount;
         setTimeout(function() {
-          var cm = {'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','returning':'returning','first_time':'first_time','low_stock':'low_stock'};
+          // Set condition
+          var cm = {'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};
           var cs = document.getElementById('rc-' + n);
-          if (cs) { cs.value = cm[rule.condition] || 'any'; updateConditionUI(n); }
+          if (cs) { cs.value = cm[rule.condition] || 'any'; onConditionChange(n); }
+
+          // Set condition values
+          if (rule.condition === 'contains_product') {
+            var tp = document.getElementById('trigger-product-' + n);
+            if (tp && rule.condition_val) tp.value = rule.condition_val;
+          } else if (rule.condition === 'order_value') {
+            var rv = document.getElementById('rv-' + n);
+            if (rv && rule.condition_val) rv.value = rule.condition_val;
+          } else if (rule.condition === 'product_category') {
+            var cat = document.getElementById('cat-' + n);
+            if (cat && rule.condition_val) cat.value = rule.condition_val;
+          } else if (rule.condition === 'low_stock' && rule.condition_val) {
+            var parts = rule.condition_val.split(':');
+            var lsp = document.getElementById('ls-product-' + n);
+            if (lsp && parts[0]) {
+              lsp.value = parts[0];
+              onLowStockProductChange(n);
+              setTimeout(function() {
+                var lsv = document.getElementById('ls-variant-' + n);
+                if (lsv && parts[1]) lsv.value = parts[1];
+              }, 300);
+            }
+            var lst = document.getElementById('ls-threshold-' + n);
+            if (lst && parts[2]) lst.value = parts[2];
+          } else if (rule.condition === 'out_of_stock') {
+            var oop = document.getElementById('oos-product-' + n);
+            if (oop && rule.condition_val) oop.value = rule.condition_val;
+          } else if (rule.condition === 'deadstock') {
+            var parts2 = (rule.condition_val || '').split(':');
+            var dsp2 = document.getElementById('ds-product-' + n);
+            if (dsp2 && parts2[0]) dsp2.value = parts2[0];
+            var dsd2 = document.getElementById('ds-days-' + n);
+            if (dsd2 && parts2[1]) dsd2.value = parts2[1];
+          }
+
+          // Set upsell products
           var p1 = document.getElementById('rp-' + n); if (p1) p1.value = rule.product_id || '';
           var p2 = document.getElementById('rp2-' + n); if (p2 && rule.product_id2) p2.value = rule.product_id2;
           var p3 = document.getElementById('rp3-' + n); if (p3 && rule.product_id3) p3.value = rule.product_id3;
           var di = document.getElementById('rd-' + n); if (di) di.value = rule.discount || 15;
-          if (rule.condition === 'low_stock' && rule.condition_val) {
-            var parts = rule.condition_val.split(':');
-            var tp = document.getElementById('trigger-product-' + n);
-            if (tp && parts[0]) { tp.value = parts[0]; updateVariantSelector(n); }
-            var vi = document.getElementById('rv-' + n); if (vi && parts[2]) vi.value = parts[2];
-          } else if (rule.condition === 'contains_product') {
-            var pts = document.getElementById('product-trigger-sel-' + n);
-            if (pts && rule.condition_val) pts.value = rule.condition_val;
-          } else {
-            var vi = document.getElementById('rv-' + n);
-            if (vi) vi.value = rule.condition_val || '';
-          }
+          var dl = document.getElementById('rl-' + n); if (dl && rule.display_location) dl.value = rule.display_location;
+
           updateRuleSummary(n);
           var card = document.getElementById('rule-' + n);
           if (card) card.classList.remove('rule-expanded');
         }, 400);
       });
     }
-  } catch(e) {}
+  } catch(e) { console.error('loadRules error:', e); }
 }
+
 
 window.addEventListener('load', async function() {
   setGreeting();
