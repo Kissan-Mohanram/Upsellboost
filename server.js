@@ -377,11 +377,16 @@ app.get('/privacy', (req, res) => {
 
 app.get('/api/store', async (req, res) => {
   const shop = req.query.shop || LEGACY_STORE;
-  if (!shop) return res.json({ domain: 'dev-store' });
+  if (!shop) return res.json({ domain: 'dev-store', currency: 'USD' });
   try {
     const d = await shopifyFetch(shop, '/shop.json');
-    res.json({ domain: d.shop?.domain || shop, name: d.shop?.name });
-  } catch { res.json({ domain: shop }); }
+    res.json({
+      domain: d.shop?.domain || shop,
+      name: d.shop?.name,
+      currency: d.shop?.currency || 'USD',
+      money_format: d.shop?.money_format || '${{amount}}'
+    });
+  } catch { res.json({ domain: shop, currency: 'USD' }); }
 });
 
 app.get('/api/products', async (req, res) => {
@@ -441,6 +446,27 @@ app.post('/api/offer', async (req, res) => {
     switch (rule.condition) {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
+      case 'out_of_stock':
+        // Triggers when customer views a sold-out product page
+        // condition_val = product_id of the out-of-stock product
+        try {
+          if (rule.condition_val) {
+            const oosData = await shopifyFetch(shopDomain, `/products/${rule.condition_val}.json`);
+            const oosProduct = oosData.product;
+            if (oosProduct) {
+              const allOutOfStock = oosProduct.variants.every(v => v.inventory_quantity <= 0);
+              const isInCart = cartIds.includes(String(rule.condition_val));
+              // Trigger if product is OOS and customer is viewing/has interacted with it
+              if (allOutOfStock || isInCart) matchedRule = rule;
+            }
+          }
+        } catch(e) {}
+        break;
+      case 'deadstock':
+        // Triggers always - pushes slow-moving product to everyone in cart
+        // condition_val = "product_id:days_threshold"
+        matchedRule = rule;
+        break;
       case 'order_value':
         if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule;
         break;
@@ -522,6 +548,27 @@ app.post('/api/offer-multi', async (req, res) => {
     switch (rule.condition) {
       case 'any': matchedRule = rule; break;
       case 'cod': if (is_cod) matchedRule = rule; break;
+      case 'out_of_stock':
+        // Triggers when customer views a sold-out product page
+        // condition_val = product_id of the out-of-stock product
+        try {
+          if (rule.condition_val) {
+            const oosData = await shopifyFetch(shopDomain, `/products/${rule.condition_val}.json`);
+            const oosProduct = oosData.product;
+            if (oosProduct) {
+              const allOutOfStock = oosProduct.variants.every(v => v.inventory_quantity <= 0);
+              const isInCart = cartIds.includes(String(rule.condition_val));
+              // Trigger if product is OOS and customer is viewing/has interacted with it
+              if (allOutOfStock || isInCart) matchedRule = rule;
+            }
+          }
+        } catch(e) {}
+        break;
+      case 'deadstock':
+        // Triggers always - pushes slow-moving product to everyone in cart
+        // condition_val = "product_id:days_threshold"
+        matchedRule = rule;
+        break;
       case 'order_value':
         if (parseFloat(order_total) >= parseFloat(rule.condition_val || 500)) matchedRule = rule; break;
       case 'contains_product':
