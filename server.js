@@ -358,15 +358,34 @@ app.get('/api/store', async (req, res) => {
 
 app.get('/api/products', async (req, res) => {
   const shop = req.shopDomain || req.query.shop || LEGACY_STORE;
-  if (!shop) return res.json({ products: [
+  const SAMPLE = [
     { id: '1', title: 'Sample Product A', variants: [{ id: 'v1', price: '499' }], images: [] },
     { id: '2', title: 'Sample Product B', variants: [{ id: 'v2', price: '999' }], images: [] },
     { id: '3', title: 'Sample Product C', variants: [{ id: 'v3', price: '299' }], images: [] }
-  ]});
+  ];
+  if (!shop) return res.json({ products: SAMPLE, source: 'sample_no_shop' });
   try {
+    const token = await getShopToken(shop);
+    console.log(`[products] shop=${shop} token=${token ? token.substring(0,8)+'...' : 'MISSING'}`);
+    if (!token) {
+      console.warn(`[products] No token for ${shop} — returning sample products`);
+      return res.json({ products: SAMPLE, source: 'sample_no_token' });
+    }
     const d = await shopifyFetch(shop, '/products.json?limit=50&status=active');
-    res.json({ products: d.products || [] });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    if (d.errors) {
+      console.error(`[products] Shopify API error for ${shop}:`, d.errors);
+      return res.json({ products: SAMPLE, source: 'sample_api_error', error: d.errors });
+    }
+    const products = d.products || [];
+    console.log(`[products] Fetched ${products.length} products for ${shop}`);
+    if (products.length === 0) {
+      return res.json({ products: SAMPLE, source: 'sample_empty_store' });
+    }
+    res.json({ products, source: 'shopify' });
+  } catch (e) {
+    console.error(`[products] Exception for ${shop}:`, e.message);
+    res.json({ products: SAMPLE, source: 'sample_exception', error: e.message });
+  }
 });
 
 app.get('/api/products-with-variants', async (req, res) => {
