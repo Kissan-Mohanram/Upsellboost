@@ -295,7 +295,41 @@ tr:last-child td{border-bottom:none}
     <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#F5F3FF"><svg viewBox="0 0 24 24" style="stroke:var(--purple)"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><span class="stat-label">Customers reached</span></div><div class="stat-value" id="a-customers">0</div><div class="stat-change neutral">Unique buyers</div></div>
     <div class="stat-card"><div class="stat-top"><div class="stat-icon" style="background:#FFFBEB"><svg viewBox="0 0 24 24" style="stroke:var(--amber)"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/></svg></div><span class="stat-label">Avg upsell value</span></div><div class="stat-value" id="a-avg">$0</div><div class="stat-change neutral">Per accepted offer</div></div>
   </div>
-  <div class="card"><div class="card-header"><div class="card-title">All upsell events</div></div><div class="table-wrap"><table><thead><tr><th>Order ID</th><th>Product</th><th>Rule</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Date</th></tr></thead><tbody id="all-events-table"><tr><td colspan="7"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr></tbody></table></div></div>
+  <div class="card">
+  <div class="card-header">
+    <div class="card-title">All upsell events</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="analytics-search" placeholder="Search product..." 
+        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none;width:160px"
+        oninput="filterAnalytics()">
+      <select id="analytics-rule-filter" 
+        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none"
+        onchange="filterAnalytics()">
+        <option value="">All rules</option>
+        <option value="any">Any order</option>
+        <option value="contains_product">Contains product</option>
+        <option value="order_value">Order value</option>
+        <option value="out_of_stock">Out of stock</option>
+        <option value="deadstock">Slow-moving</option>
+        <option value="cod">COD</option>
+        <option value="low_stock">Low stock</option>
+        <option value="cart_upsell">Cart upsell</option>
+        <option value="post-purchase">Post-purchase</option>
+      </select>
+      <select id="analytics-result-filter"
+        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none"
+        onchange="filterAnalytics()">
+        <option value="">All results</option>
+        <option value="accepted">Accepted only</option>
+        <option value="declined">Declined only</option>
+      </select>
+      <button onclick="clearAnalyticsFilter()" 
+        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:white;cursor:pointer;font-family:inherit">
+        Clear
+      </button>
+    </div>
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>Order ID</th><th>Product</th><th>Rule</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Date</th></tr></thead><tbody id="all-events-table"><tr><td colspan="7"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr></tbody></table></div></div>
 </div>
 
 <!-- WHATSAPP -->
@@ -580,9 +614,36 @@ var currentBilling = 'monthly';
 var PRICES = { free:0, basic:9.99, pro:24.99, enterprise:59.99 };
 
 // Get shop from URL or localStorage
+// Global shop domain - set by loadStore on page load
+var CURRENT_SHOP = localStorage.getItem('ub2_shop') || '';
+
 function getShop() {
+  // 1. Use global set by loadStore (most reliable)
+  if (CURRENT_SHOP) return CURRENT_SHOP;
+  // 2. Try URL params
   var p = new URLSearchParams(window.location.search);
-  return p.get('shop') || p.get('shopify-domain') || localStorage.getItem('ub2_shop') || '';
+  var shop = p.get('shop') || p.get('shopify-domain');
+  if (shop) { CURRENT_SHOP = shop; localStorage.setItem('ub2_shop', shop); return shop; }
+  // 3. Try Shopify embedded host param
+  var host = p.get('host');
+  if (host) {
+    try {
+      var decoded = atob(host);
+      var m = decoded.match(/([a-z0-9-]+\.myshopify\.com)/i);
+      if (m) { CURRENT_SHOP = m[1]; localStorage.setItem('ub2_shop', m[1]); return m[1]; }
+    } catch(e) {}
+  }
+  // 4. Try localStorage
+  var saved = localStorage.getItem('ub2_shop');
+  if (saved) { CURRENT_SHOP = saved; return saved; }
+  // 5. Hard fallback - your test store
+  return 'upsell-test-store-hdtdvj2n.myshopify.com';
+}
+
+function setShop(domain) {
+  if (!domain) return;
+  CURRENT_SHOP = domain;
+  localStorage.setItem('ub2_shop', domain);
 }
 
 // Build API URL with shop param
@@ -658,6 +719,20 @@ function tourNext() {
 function tourBack() { if (tourStep > 0) { tourStep--; renderTourStep(); } }
 function skipTour() { document.getElementById('tour-overlay').style.display = 'none'; }
 function neverShowTour() { localStorage.setItem('ub2_tour_never', 'true'); document.getElementById('tour-overlay').style.display = 'none'; showToast('Tour hidden. Click Tour in nav to replay.'); }
+
+function filterProductSelect(selectId, query) {
+  var sel = document.getElementById(selectId);
+  if (!sel) return;
+  var q = query.toLowerCase();
+  var opts = sel.querySelectorAll('option');
+  opts.forEach(function(opt) {
+    if (!opt.value) return; // keep placeholder
+    opt.style.display = q === '' || opt.text.toLowerCase().includes(q) ? '' : 'none';
+  });
+  // Auto-select if only one visible match
+  var visible = Array.from(opts).filter(function(o) { return o.value && o.style.display !== 'none'; });
+  if (visible.length === 1) sel.value = visible[0].value;
+}
 
 function showPage(event, name) {
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
@@ -845,6 +920,11 @@ function addRule() {
   div.id = 'rule-' + n;
   var po = '<option value="">Select product...</option>';
   products.forEach(function(p){ po += '<option value="' + p.id + '">' + p.title + '</option>'; });
+  // Build searchable datalist
+  var dlId = 'dl-products-' + n;
+  var dlHtml = '<datalist id="' + dlId + '">';
+  products.forEach(function(p){ dlHtml += '<option data-id="' + p.id + '" value="' + p.title + '">'; });
+  dlHtml += '</datalist>';
 
   div.innerHTML =
     // -- COLLAPSED SUMMARY ROW --
@@ -1008,7 +1088,97 @@ function addRule() {
     '</div>'; // end rule-fields
 
   container.appendChild(div);
+  // Add search boxes after DOM insertion (avoids quote nesting issues)
+  addProductSearch(n);
   showToast('Rule ' + n + ' added -- select your trigger and upsell product!');
+}
+
+function addProductSearch(n) {
+  var prefixes = ['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-','product-trigger-sel-'];
+  prefixes.forEach(function(prefix) {
+    var sel = document.getElementById(prefix + n);
+    if (!sel) return;
+    if (document.getElementById('wrap-' + prefix + n)) return;
+
+    sel.style.display = 'none';
+
+    var wrapper = document.createElement('div');
+    wrapper.id = 'wrap-' + prefix + n;
+    wrapper.style.cssText = 'position:relative;width:100%;display:block';
+
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.id = 'search-' + prefix + n;
+    inp.autocomplete = 'off';
+    inp.placeholder = 'Search products...';
+    inp.style.cssText = 'width:100%;padding:8px 32px 8px 34px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;background:white;color:#1A202C;display:block';
+
+    var icon = document.createElement('span');
+    icon.style.cssText = 'position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>';
+
+    var chev = document.createElement('span');
+    chev.style.cssText = 'position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
+    chev.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><polyline points="6 9 12 15 18 9"/></svg>';
+
+    var list = document.createElement('div');
+    list.style.cssText = 'display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';
+
+    function buildList(q) {
+      list.innerHTML = '';
+      var opts = Array.from(sel.options).filter(function(o) { return !!o.value; });
+      var filtered = q ? opts.filter(function(o) { return o.text.toLowerCase().includes(q.toLowerCase()); }) : opts;
+      if (filtered.length === 0) {
+        var empty = document.createElement('div');
+        empty.textContent = 'No products found';
+        empty.style.cssText = 'padding:10px 12px;color:#94A3B8;font-size:12px;text-align:center';
+        list.appendChild(empty);
+        return;
+      }
+      filtered.forEach(function(opt) {
+        var item = document.createElement('div');
+        var isSel = opt.value === sel.value;
+        item.style.cssText = 'padding:9px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F8FAFC;color:#1A202C;' + (isSel ? 'background:#F0FFF8;' : '');
+        var label = document.createElement('span');
+        label.textContent = opt.text;
+        item.appendChild(label);
+        if (isSel) {
+          var tick = document.createElement('span');
+          tick.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#1DC974;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+          item.appendChild(tick);
+        }
+        item.onmouseover = function() { if (!isSel) this.style.background = '#F8FAFC'; };
+        item.onmouseout = function() { if (!isSel) this.style.background = ''; };
+        item.onmousedown = function(e) {
+          e.preventDefault();
+          sel.value = opt.value;
+          inp.value = opt.text;
+          list.style.display = 'none';
+          sel.dispatchEvent(new Event('change'));
+          if (typeof updateRuleSummary === 'function') updateRuleSummary(n);
+        };
+        list.appendChild(item);
+      });
+    }
+
+    inp.onfocus = function() { buildList(this.value); list.style.display = 'block'; };
+    inp.oninput = function() { buildList(this.value); list.style.display = 'block'; };
+    inp.onblur = function() { setTimeout(function() { list.style.display = 'none'; }, 200); };
+    inp.onclick = function() { if (list.style.display === 'none') { buildList(this.value); list.style.display = 'block'; } };
+    document.addEventListener('click', function(e) { if (!wrapper.contains(e.target)) list.style.display = 'none'; });
+
+    if (sel.value) {
+      var found = Array.from(sel.options).find(function(o) { return o.value === sel.value; });
+      if (found) inp.value = found.text;
+    }
+
+    sel.parentNode.insertBefore(wrapper, sel);
+    wrapper.appendChild(icon);
+    wrapper.appendChild(inp);
+    wrapper.appendChild(chev);
+    wrapper.appendChild(list);
+    wrapper.appendChild(sel);
+  });
 }
 
 function onConditionChange(n) {
@@ -1025,6 +1195,18 @@ function onConditionChange(n) {
   else if (val === 'low_stock') document.getElementById('cond-lowstock-' + n).style.display = 'block';
   else if (val === 'out_of_stock') document.getElementById('cond-out_of_stock-' + n).style.display = 'block';
   else if (val === 'deadstock') document.getElementById('cond-deadstock-' + n).style.display = 'block';
+
+  // For OOS: hide display location (always shows as popup)
+  var locRow = document.getElementById('loc-row-' + n);
+  if (locRow) locRow.style.display = val === 'out_of_stock' ? 'none' : 'block';
+
+  // For OOS: update label to make Step 2 clear
+  var upsellLabel = document.getElementById('upsell-label-' + n);
+  if (upsellLabel) {
+    upsellLabel.innerHTML = val === 'out_of_stock'
+      ? 'Show these alternatives in the popup <span style="color:var(--red)">*</span>'
+      : 'Offer this alternative product <span style="color:var(--red)">*</span>';
+  }
   updateRuleSummary(n);
 }
 
@@ -1121,6 +1303,42 @@ async function saveRules() {
 function previewRules() {
   var t = document.querySelector('.rule-summary-title');
   showToast(t ? t.textContent : 'No rules yet -- add one first!');
+}
+
+function filterAnalytics() {
+  var search = (document.getElementById('analytics-search')?.value || '').toLowerCase();
+  var ruleFilter = document.getElementById('analytics-rule-filter')?.value || '';
+  var resultFilter = document.getElementById('analytics-result-filter')?.value || '';
+  var sym = getCurrencySymbol();
+  var filtered = S.events.filter(function(x) {
+    var matchSearch = !search || (x.product_name || '').toLowerCase().includes(search);
+    var matchRule = !ruleFilter || (x.trigger_rule || x.channel || '').includes(ruleFilter);
+    var matchResult = !resultFilter ||
+      (resultFilter === 'accepted' && x.accepted) ||
+      (resultFilter === 'declined' && !x.accepted);
+    return matchSearch && matchRule && matchResult;
+  });
+  var tbody = document.getElementById('all-events-table');
+  if (!tbody) return;
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty" style="padding:20px">No events match your filter</div></td></tr>';
+    return;
+  }
+  var rows = '';
+  filtered.slice().reverse().forEach(function(x) {
+    rows += '<tr><td class="mono">#' + x.order_id + '</td><td>' + (x.product_name || '--') + '</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">' + (x.trigger_rule || 'all') + '</span></td><td>' + (x.channel || 'post-purchase') + '</td><td>' + (x.accepted ? '<span class="badge badge-green">Accepted</span>' : '<span class="badge badge-gray">Declined</span>') + '</td><td style="color:' + (x.accepted ? 'var(--green-d)' : 'var(--soft)') + '">' + (x.accepted ? '+' + sym + x.revenue : '--') + '</td><td style="color:var(--muted);font-size:12px">' + new Date(x.date).toLocaleDateString() + '</td></tr>';
+  });
+  tbody.innerHTML = rows;
+}
+
+function clearAnalyticsFilter() {
+  var s = document.getElementById('analytics-search');
+  var r = document.getElementById('analytics-rule-filter');
+  var re = document.getElementById('analytics-result-filter');
+  if (s) s.value = '';
+  if (r) r.value = '';
+  if (re) re.value = '';
+  renderAnalytics();
 }
 
 function renderAnalytics() {
@@ -1236,7 +1454,7 @@ async function loadStore() {
     if (r.ok) {
       var d = await r.json();
       document.getElementById('store-domain').textContent = d.domain || 'dev store';
-      if (d.domain) localStorage.setItem('ub2_shop', d.domain);
+      if (d.domain) setShop(d.domain);
       if (d.currency) saveCurrencySymbol(d.currency);
     }
   } catch(e) { document.getElementById('store-domain').textContent = 'dev store'; }
@@ -1345,12 +1563,39 @@ async function loadRules() {
           var dl = document.getElementById('rl-' + n); if (dl && rule.display_location) dl.value = rule.display_location;
 
           updateRuleSummary(n);
+          addProductSearch(n);
           var card = document.getElementById('rule-' + n);
           if (card) card.classList.remove('rule-expanded');
         }, 800);
       });
     }
   } catch(e) { console.error('loadRules error:', e); }
+}
+
+// Migrate rules from 'default' shop to actual shop on first load
+async function migrateDefaultRules() {
+  var shop = getShop();
+  if (!shop || shop === 'default') return;
+  try {
+    // Check if there are rules under 'default'
+    var r = await fetch('/api/rules?shop=default');
+    if (!r.ok) return;
+    var d = await r.json();
+    var defaultRules = d.rules || [];
+    if (defaultRules.length === 0) return;
+    // Check if shop already has rules
+    var r2 = await fetch(apiUrl('/api/rules'));
+    if (!r2.ok) return;
+    var d2 = await r2.json();
+    if ((d2.rules || []).length > 0) return; // shop already has rules
+    // Migrate default rules to this shop
+    await fetch(apiUrl('/api/rules'), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rules: defaultRules, shop: shop})
+    });
+    console.log('Migrated', defaultRules.length, 'rules from default to', shop);
+  } catch(e) {}
 }
 
 
@@ -1362,6 +1607,7 @@ window.addEventListener('load', async function() {
   await loadProductsWithVariants();
   await loadEvents();
   await loadSettings();
+  await migrateDefaultRules();
   await loadRules();
   renderDashboard();
   if (!localStorage.getItem('ub2_tour_never')) setTimeout(function(){ startTour(); }, 800);
