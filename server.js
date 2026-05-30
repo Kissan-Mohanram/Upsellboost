@@ -639,9 +639,32 @@ app.post('/api/rules', async (req, res) => {
   const shop = req.body.shop || LEGACY_STORE || 'default';
   const rules = req.body.rules || [];
   if (supabase) {
-    await supabase.from('rules').delete().eq('shop_domain', shop);
+    // Delete existing rules for this shop
+    const { error: delErr } = await supabase.from('rules').delete().eq('shop_domain', shop);
+    if (delErr) console.error('Rules delete error:', delErr.message);
+
     if (rules.length > 0) {
-      await supabase.from('rules').insert(rules.map(r => ({ ...r, shop_domain: shop })));
+      // Only keep columns that exist in Supabase schema
+      const safeRules = rules.map(r => ({
+        shop_domain: shop,
+        condition: r.condition || 'any',
+        condition_val: r.condition_val || null,
+        condition_label: r.condition_label || r.condition || 'any',
+        product_id: r.product_id || null,
+        product_id2: r.product_id2 || null,
+        product_id3: r.product_id3 || null,
+        product_name: r.product_name || null,
+        discount: r.discount || 15,
+        display_location: r.display_location || 'both'
+      }));
+
+      const { data: inserted, error: insErr } = await supabase.from('rules').insert(safeRules).select();
+      if (insErr) {
+        console.error('Rules insert error:', insErr.message);
+        return res.json({ success: false, error: insErr.message, count: 0 });
+      }
+      console.log(`Saved ${inserted?.length || 0} rules for ${shop}`);
+      return res.json({ success: true, count: inserted?.length || rules.length });
     }
   } else {
     const data = readData();
