@@ -734,6 +734,22 @@ function filterProductSelect(selectId, query) {
   if (visible.length === 1) sel.value = visible[0].value;
 }
 
+function syncSearchLabels(n) {
+  // After values are set on hidden selects, update visible search inputs to show the label
+  var prefixes = ['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-','product-trigger-sel-'];
+  prefixes.forEach(function(prefix) {
+    var sel = document.getElementById(prefix + n);
+    var inp = document.getElementById('search-' + prefix + n);
+    if (!sel || !inp) return;
+    if (sel.value) {
+      var opt = Array.from(sel.options).find(function(o) { return o.value === sel.value; });
+      if (opt) inp.value = opt.text;
+    } else {
+      inp.value = '';
+    }
+  });
+}
+
 function showPage(event, name) {
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
@@ -1564,6 +1580,8 @@ async function loadRules() {
 
           updateRuleSummary(n);
           addProductSearch(n);
+          // Sync search input labels after values are set
+          syncSearchLabels(n);
           var card = document.getElementById('rule-' + n);
           if (card) card.classList.remove('rule-expanded');
         }, 800);
