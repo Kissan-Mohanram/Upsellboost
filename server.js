@@ -190,28 +190,43 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
-// Register order webhook for newly installed shop
+// ── HMAC WEBHOOK VERIFICATION ──
+function verifyWebhookHMAC(req) {
+  const hmacHeader = req.headers['x-shopify-hmac-sha256'];
+  if (!hmacHeader || !CLIENT_SECRET) return true; // skip in dev if no secret
+  try {
+    const body = req.body; // must be raw buffer
+    const hash = crypto
+      .createHmac('sha256', CLIENT_SECRET)
+      .update(body)
+      .digest('base64');
+    return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
+  } catch(e) {
+    console.error('HMAC verify error:', e.message);
+    return false;
+  }
+}
+
+// Register all mandatory webhooks for newly installed shop
 async function registerWebhooks(shop, token) {
   try {
     const webhookTopics = [
-      'orders/create',
-      'app/uninstalled',
-      'customers/redact',
-      'shop/redact',
-      'customers/data_request'
+      { topic: 'orders/create',              address: `${APP_URL}/webhooks/orders/create` },
+      { topic: 'app/uninstalled',            address: `${APP_URL}/webhooks/app/uninstalled` },
+      { topic: 'customers/redact',           address: `${APP_URL}/webhooks/customers/redact` },
+      { topic: 'shop/redact',               address: `${APP_URL}/webhooks/shop/redact` },
+      { topic: 'customers/data_request',    address: `${APP_URL}/webhooks/customers/data_request` }
     ];
-    for (const topic of webhookTopics) {
-      await fetch(`https://${shop}/admin/api/${API_VERSION}/webhooks.json`, {
+    for (const wh of webhookTopics) {
+      const res = await fetch(`https://${shop}/admin/api/${API_VERSION}/webhooks.json`, {
         method: 'POST',
         headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhook: {
-          topic,
-          address: `${APP_URL}/webhooks/${topic.replace('/', '/')}`,
-          format: 'json'
-        }})
+        body: JSON.stringify({ webhook: { topic: wh.topic, address: wh.address, format: 'json' }})
       });
+      const data = await res.json();
+      if (data.errors) console.log(`Webhook ${wh.topic} error:`, data.errors);
+      else console.log(`✓ Webhook registered: ${wh.topic}`);
     }
-    console.log(`✓ All webhooks registered for ${shop}`);
   } catch (e) {
     console.log('Webhook registration failed:', e.message);
   }
@@ -332,6 +347,7 @@ app.get('/api/plan', async (req, res) => {
 
 // Billing webhook — fired when subscription is cancelled/expired
 app.post('/webhooks/app/uninstalled', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: app/uninstalled'); return res.sendStatus(401); }
   res.sendStatus(200);
   try {
     const shop = req.headers['x-shopify-shop-domain'];
@@ -735,6 +751,7 @@ app.get('/api/settings', async (req, res) => {
 
 // Order webhook
 app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: orders/create'); return res.sendStatus(401); }
   res.sendStatus(200);
   try {
     const order = JSON.parse(req.body);
@@ -764,6 +781,7 @@ app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), a
 
 // Customers request their data be deleted
 app.post('/webhooks/customers/redact', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: customers/redact'); return res.sendStatus(401); }
   res.sendStatus(200);
   try {
     const body = JSON.parse(req.body);
@@ -776,6 +794,7 @@ app.post('/webhooks/customers/redact', express.raw({ type: 'application/json' })
 
 // Shop owner requests all their data be deleted (after uninstall)
 app.post('/webhooks/shop/redact', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: shop/redact'); return res.sendStatus(401); }
   res.sendStatus(200);
   try {
     const body = JSON.parse(req.body);
@@ -793,6 +812,7 @@ app.post('/webhooks/shop/redact', express.raw({ type: 'application/json' }), asy
 
 // Customers request to see their data
 app.post('/webhooks/customers/data_request', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: customers/data_request'); return res.sendStatus(401); }
   res.sendStatus(200);
   // We don't store personal customer data (no names, emails, addresses)
   console.log('GDPR data_request received — no personal data stored');
@@ -850,10 +870,13 @@ app.get('/health', async (req, res) => {
   }
   res.json({
     status: 'ok',
-    version: '3.0.0',
+    version: '3.1.0',
     store: LEGACY_STORE || 'oauth-multi-shop',
     oauth: !!CLIENT_ID,
     billing: !!CLIENT_ID,
+    hmac_verification: !!CLIENT_SECRET,
+    gdpr_webhooks: true,
+    mandatory_webhooks: ['orders/create','app/uninstalled','customers/redact','shop/redact','customers/data_request'],
     shops: shopsCount,
     rules: rulesCount,
     events: eventsCount,
