@@ -142,7 +142,6 @@ tr:last-child td{border-bottom:none}
 .tour-card{background:white;border-radius:20px;padding:0;width:500px;max-width:92vw;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.4);animation:tourIn 0.4s cubic-bezier(.34,1.56,.64,1)}
 @keyframes tourIn{from{opacity:0;transform:scale(0.88) translateY(24px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .tour-screen{height:220px;overflow:hidden;position:relative;background:#F4F5F7;border-bottom:1.5px solid #E2E8F0}
-
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .tour-body{padding:24px 28px 28px}
 .tour-step-dots{display:flex;gap:6px;margin-bottom:16px}
@@ -165,6 +164,33 @@ tr:last-child td{border-bottom:none}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
+<!-- ✅ App Bridge — Shopify CDN (satisfies embedded app checks) -->
+<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+<script>
+  var AppBridge = window['app-bridge'];
+  var actions = AppBridge.actions;
+  var createApp = AppBridge.default;
+  var urlParams = new URLSearchParams(window.location.search);
+  var host = urlParams.get('host');
+  var shop = urlParams.get('shop');
+  if (host && AppBridge) {
+    var app = createApp({ apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host });
+    var SessionToken = actions.SessionToken;
+    async function getSessionToken() {
+      return new Promise(function(resolve) {
+        var req = SessionToken.create(app);
+        req.subscribe(SessionToken.Action.RESPOND, function(payload) { resolve(payload.sessionToken); });
+        req.dispatch(SessionToken.Action.REQUEST);
+      });
+    }
+    window.addEventListener('DOMContentLoaded', async function() {
+      try {
+        var token = await getSessionToken();
+        fetch('/api/auth-check?shop=' + (shop || ''), { headers: { 'Authorization': 'Bearer ' + token } });
+      } catch(e) {}
+    });
+  }
+</script>
 </head>
 <body>
 
@@ -299,12 +325,8 @@ tr:last-child td{border-bottom:none}
   <div class="card-header">
     <div class="card-title">All upsell events</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="text" id="analytics-search" placeholder="Search product..." 
-        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none;width:160px"
-        oninput="filterAnalytics()">
-      <select id="analytics-rule-filter" 
-        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none"
-        onchange="filterAnalytics()">
+      <input type="text" id="analytics-search" placeholder="Search product..." style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none;width:160px" oninput="filterAnalytics()">
+      <select id="analytics-rule-filter" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none" onchange="filterAnalytics()">
         <option value="">All rules</option>
         <option value="any">Any order</option>
         <option value="contains_product">Contains product</option>
@@ -316,17 +338,12 @@ tr:last-child td{border-bottom:none}
         <option value="cart_upsell">Cart upsell</option>
         <option value="post-purchase">Post-purchase</option>
       </select>
-      <select id="analytics-result-filter"
-        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none"
-        onchange="filterAnalytics()">
+      <select id="analytics-result-filter" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;outline:none" onchange="filterAnalytics()">
         <option value="">All results</option>
         <option value="accepted">Accepted only</option>
         <option value="declined">Declined only</option>
       </select>
-      <button onclick="clearAnalyticsFilter()" 
-        style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:white;cursor:pointer;font-family:inherit">
-        Clear
-      </button>
+      <button onclick="clearAnalyticsFilter()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;background:white;cursor:pointer;font-family:inherit">Clear</button>
     </div>
   </div>
   <div class="table-wrap"><table><thead><tr><th>Order ID</th><th>Product</th><th>Rule</th><th>Channel</th><th>Result</th><th>Revenue</th><th>Date</th></tr></thead><tbody id="all-events-table"><tr><td colspan="7"><div class="empty" style="padding:20px"><div class="empty-title">No events yet</div></div></td></tr></tbody></table></div></div>
@@ -396,22 +413,17 @@ tr:last-child td{border-bottom:none}
 <!-- PRICING -->
 <div class="page" id="page-pricing">
   <div class="page-header"><div><div class="page-title">Plans & Pricing</div><div class="page-sub">Flat monthly fee — zero commission on your upsell revenue. Ever.</div></div></div>
-
   <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:14px 18px;margin-bottom:24px;display:flex;align-items:flex-start;gap:12px">
     <span style="font-size:18px;flex-shrink:0">ℹ️</span>
     <div><div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:2px">About Shopify's billing fee</div><div style="font-size:12px;color:#92400E;line-height:1.6">Shopify charges a <b>2.9% payment processing fee</b> on all app subscriptions — this goes to Shopify, not us. On your first $1M lifetime revenue, Shopify takes 0% commission. Above $1M, Shopify takes 15%. We never take commission on your upsell revenue — only our flat monthly fee.</div></div>
   </div>
-
   <div style="display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:32px;flex-wrap:wrap">
-    
     <div style="display:flex;align-items:center;gap:4px;background:var(--bg);border:1.5px solid var(--border);border-radius:99px;padding:4px">
       <button id="bill-monthly" onclick="setBilling('monthly')" style="padding:7px 18px;border-radius:99px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:var(--navy);color:var(--green);font-family:inherit">Monthly</button>
       <button id="bill-annual" onclick="setBilling('annual')" style="padding:7px 18px;border-radius:99px;border:none;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:var(--muted);font-family:inherit">Annual &nbsp;<span style="font-size:10px;background:#E8FFF4;color:#0D7A4E;padding:2px 7px;border-radius:99px;font-weight:700">Save 17%</span></button>
     </div>
   </div>
-
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px">
-    <!-- FREE -->
     <div style="background:white;border:1.5px solid var(--border);border-radius:16px;padding:22px;display:flex;flex-direction:column">
       <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Free</div>
       <div><span style="font-size:38px;font-weight:800;color:var(--text);letter-spacing:-2px" id="price-free">$0</span></div>
@@ -430,7 +442,6 @@ tr:last-child td{border-bottom:none}
       </div>
       <button style="width:100%;padding:10px;border-radius:8px;border:1.5px solid var(--border);background:white;font-size:13px;font-weight:600;cursor:default;color:var(--muted);font-family:inherit">Current plan</button>
     </div>
-    <!-- BASIC -->
     <div style="background:white;border:1.5px solid var(--border);border-radius:16px;padding:22px;display:flex;flex-direction:column">
       <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Basic</div>
       <div><span style="font-size:38px;font-weight:800;color:var(--text);letter-spacing:-2px" id="price-basic">$9.99</span></div>
@@ -449,7 +460,6 @@ tr:last-child td{border-bottom:none}
       </div>
       <button onclick="upgradePlan('basic')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--blue);color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Start 7-day free trial</button>
     </div>
-    <!-- PRO -->
     <div style="background:var(--navy);border:2px solid #3DFFA0;border-radius:16px;padding:22px;display:flex;flex-direction:column;position:relative">
       <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green);color:#0D0D0D;font-size:10px;font-weight:800;padding:4px 14px;border-radius:99px;white-space:nowrap">⭐ Most Popular</div>
       <div style="font-size:11px;font-weight:700;color:#3DFFA0;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Pro</div>
@@ -469,7 +479,6 @@ tr:last-child td{border-bottom:none}
       </div>
       <button onclick="upgradePlan('pro')" style="width:100%;padding:10px;border-radius:8px;border:none;background:#3DFFA0;color:#0D0D0D;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">Start 7-day free trial</button>
     </div>
-    <!-- ENTERPRISE -->
     <div style="background:white;border:1.5px solid var(--border);border-radius:16px;padding:22px;display:flex;flex-direction:column">
       <div style="font-size:11px;font-weight:700;color:var(--purple);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Enterprise</div>
       <div><span style="font-size:38px;font-weight:800;color:var(--text);letter-spacing:-2px" id="price-enterprise">$59.99</span></div>
@@ -489,7 +498,6 @@ tr:last-child td{border-bottom:none}
       <button onclick="upgradePlan('enterprise')" style="width:100%;padding:10px;border-radius:8px;border:none;background:var(--purple);color:white;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Contact sales →</button>
     </div>
   </div>
-
   <div style="background:var(--navy);border-radius:16px;padding:24px;margin-bottom:20px;border:1px solid rgba(61,255,160,0.1)">
     <div style="text-align:center;margin-bottom:18px"><div style="font-size:17px;font-weight:700;color:white;margin-bottom:4px">Why UpsellBoost charges zero commission on your upsell revenue</div><div style="font-size:13px;color:#9CA3AF">ReConvert charges 0.75%. Zipify charges 1%. At ₹1L/month upsell revenue that's ₹750–₹1,000 extra every month just in commissions.</div></div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
@@ -498,7 +506,6 @@ tr:last-child td{border-bottom:none}
       <div style="text-align:center;padding:14px;background:rgba(255,255,255,0.04);border-radius:10px;border:1px solid rgba(61,255,160,0.08)"><div style="font-size:26px;margin-bottom:6px">🌍</div><div style="font-size:13px;font-weight:600;color:white;margin-bottom:3px">Works Everywhere</div><div style="font-size:12px;color:#9CA3AF">Any currency, any theme, any market. Zero setup needed.</div></div>
     </div>
   </div>
-
   <div class="card">
     <div class="card-header"><div class="card-title">Frequently asked questions</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -506,7 +513,7 @@ tr:last-child td{border-bottom:none}
       <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">What about Shopify's revenue share above $1M?</div><div style="font-size:13px;color:var(--muted)">Shopify takes 0% on your first $1M lifetime app revenue (from Jan 2025), then 15% above that. This affects us as the developer — not you as a merchant.</div></div>
       <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Can I upgrade or downgrade anytime?</div><div style="font-size:13px;color:var(--muted)">Yes — changes take effect immediately. Upgrades are prorated. Downgrades take effect at next billing cycle.</div></div>
       <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">What if I exceed my order limit?</div><div style="font-size:13px;color:var(--muted)">Your upsells keep running — we never block your store. We'll notify you to upgrade when you're close.</div></div>
-      <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Is there a free trial on paid plans?</div><div style="font-size:13px;color:var(--muted)">Yes — 14 days free on Basic and Pro. No credit card required to start the trial.</div></div>
+      <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Is there a free trial on paid plans?</div><div style="font-size:13px;color:var(--muted)">Yes — 7 days free on Basic and Pro. No credit card required to start the trial.</div></div>
       <div><div style="font-size:13px;font-weight:600;margin-bottom:4px">How does the affiliate program work?</div><div style="font-size:13px;color:var(--muted)">Refer a merchant — they subscribe — you earn 20% of their monthly fee for 12 months. Go to the Affiliate page to get your link.</div></div>
     </div>
   </div>
@@ -515,7 +522,6 @@ tr:last-child td{border-bottom:none}
 <!-- AFFILIATE -->
 <div class="page" id="page-affiliate">
   <div class="page-header"><div><div class="page-title">Affiliate Program</div><div class="page-sub">Earn 20% recurring commission for 12 months on every merchant you refer</div></div></div>
-
   <div style="background:var(--navy);border-radius:16px;padding:32px;margin-bottom:20px;text-align:center;border:1px solid rgba(61,255,160,0.1)">
     <div style="font-size:40px;margin-bottom:12px">💰</div>
     <div style="font-size:22px;font-weight:700;color:white;margin-bottom:8px;letter-spacing:-0.5px">Earn up to $60/year per referral</div>
@@ -526,7 +532,6 @@ tr:last-child td{border-bottom:none}
       <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:16px;border:1px solid rgba(61,255,160,0.1)"><div style="font-size:24px;font-weight:800;color:#3DFFA0">∞</div><div style="font-size:12px;color:#9CA3AF;margin-top:2px">No referral cap</div></div>
     </div>
   </div>
-
   <div class="card" style="margin-bottom:16px">
     <div class="card-header"><div class="card-title">💡 Earnings calculator</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center">
@@ -538,9 +543,9 @@ tr:last-child td{border-bottom:none}
         </div>
         <div><label class="form-label">Average plan they subscribe to</label>
           <select class="form-select" id="aff-plan" onchange="calcAffiliate()">
-            <option value="799">Basic ? $9.99/mo</option>
-            <option value="1999" selected>Pro ? $24.99/mo</option>
-            <option value="4999">Enterprise ? $59.99/mo</option>
+            <option value="799">Basic — $9.99/mo</option>
+            <option value="1999" selected>Pro — $24.99/mo</option>
+            <option value="4999">Enterprise — $59.99/mo</option>
           </select>
         </div>
       </div>
@@ -554,7 +559,6 @@ tr:last-child td{border-bottom:none}
       </div>
     </div>
   </div>
-
   <div class="card" style="margin-bottom:16px">
     <div class="card-header"><div class="card-title">How it works</div></div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
@@ -564,7 +568,6 @@ tr:last-child td{border-bottom:none}
       <div style="text-align:center;padding:16px"><div style="width:40px;height:40px;background:var(--green-l);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:16px;font-weight:700;color:var(--green-d);border:2px solid rgba(29,201,116,0.2)">4</div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Earn every month</div><div style="font-size:12px;color:var(--muted)">20% of their subscription for 12 months</div></div>
     </div>
   </div>
-
   <div class="card" style="margin-bottom:16px">
     <div class="card-header"><div class="card-title">Commission breakdown</div></div>
     <div class="table-wrap">
@@ -572,14 +575,13 @@ tr:last-child td{border-bottom:none}
         <thead><tr><th>Plan referred</th><th>Monthly fee</th><th>Your 20% commission</th><th>12-month total</th><th>After Shopify's 2.9% cut</th></tr></thead>
         <tbody>
           <tr><td><b>Basic</b></td><td>$9.99/mo</td><td style="color:var(--green-d);font-weight:600">$2.00/mo</td><td style="font-weight:600">$24/year</td><td style="color:var(--muted);font-size:12px">~$1.94/mo net</td></tr>
-          <tr><td><b>Pro ?</b></td><td>$24.99/mo</td><td style="color:var(--green-d);font-weight:600">$5/mo</td><td style="font-weight:600">$60/year</td><td style="color:var(--muted);font-size:12px">~$4.85/mo net</td></tr>
+          <tr><td><b>Pro ⭐</b></td><td>$24.99/mo</td><td style="color:var(--green-d);font-weight:600">$5/mo</td><td style="font-weight:600">$60/year</td><td style="color:var(--muted);font-size:12px">~$4.85/mo net</td></tr>
           <tr><td><b>Enterprise</b></td><td>$59.99/mo</td><td style="color:var(--green-d);font-weight:600">$12/mo</td><td style="font-weight:600">$144/year</td><td style="color:var(--muted);font-size:12px">~$11.65/mo net</td></tr>
         </tbody>
       </table>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:10px">* Your commission is calculated on the amount we receive after Shopify's 2.9% payment processing fee. Commissions paid monthly via UPI/bank transfer (min ₹500 payout). Self-referrals not eligible.</div>
   </div>
-
   <div class="card">
     <div class="card-header"><div class="card-title">Join the affiliate program</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
@@ -604,1110 +606,101 @@ tr:last-child td{border-bottom:none}
 <div class="toast" id="toast"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="toast-msg"></span></div>
 
 <script>
-
-var S = { events:[], rules:[], settings:{} };
-var products = [];
-var productsWithVariants = [];
-var ruleCount = 0;
-var tourStep = 0;
-var currentBilling = 'monthly';
-var PRICES = { free:0, basic:9.99, pro:24.99, enterprise:59.99 };
-
-// Get shop from URL or localStorage
-// Global shop domain - set by loadStore on page load
-var CURRENT_SHOP = localStorage.getItem('ub2_shop') || '';
-
-function getShop() {
-  // 1. Use global set by loadStore (most reliable)
-  if (CURRENT_SHOP) return CURRENT_SHOP;
-  // 2. Try URL params
-  var p = new URLSearchParams(window.location.search);
-  var shop = p.get('shop') || p.get('shopify-domain');
-  if (shop) { CURRENT_SHOP = shop; localStorage.setItem('ub2_shop', shop); return shop; }
-  // 3. Try Shopify embedded host param
-  var host = p.get('host');
-  if (host) {
-    try {
-      var decoded = atob(host);
-      var m = decoded.match(/([a-z0-9-]+\.myshopify\.com)/i);
-      if (m) { CURRENT_SHOP = m[1]; localStorage.setItem('ub2_shop', m[1]); return m[1]; }
-    } catch(e) {}
-  }
-  // 4. Try localStorage
-  var saved = localStorage.getItem('ub2_shop');
-  if (saved) { CURRENT_SHOP = saved; return saved; }
-  // 5. Hard fallback - your test store
-  return 'upsell-test-store-hdtdvj2n.myshopify.com';
-}
-
-function setShop(domain) {
-  if (!domain) return;
-  CURRENT_SHOP = domain;
-  localStorage.setItem('ub2_shop', domain);
-}
-
-// Build API URL with shop param
-function apiUrl(path) {
-  var shop = getShop();
-  return shop ? path + (path.indexOf('?') >= 0 ? '&' : '?') + 'shop=' + encodeURIComponent(shop) : path;
-}
-
-// Currency symbol detection
-function getCurrencySymbol() {
-  return localStorage.getItem('ub2_currency') || '$';
-}
-function saveCurrencySymbol(code) {
-  var map = {'INR':'Rs.','USD':'$','EUR':'EUR ','GBP':'GBP ','AUD':'A$','CAD':'C$','SGD':'S$','AED':'AED ','MYR':'RM ','JPY':'JPY ','BRL':'R$','ZAR':'R '};
-  localStorage.setItem('ub2_currency', map[code] || '$');
-}
-
-// Tour steps
-var TOUR_STEPS = [
-  {
-    title: 'Welcome to UpsellBoost!',
-    desc: 'The smart upsell engine for Shopify merchants. Boost your AOV with intelligent cart and post-purchase upsells.',
-    tip: 'Most merchants see 15-25% increase in AOV within the first week.',
-    screen: '<div style="width:100%;height:100%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:16px"><div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:28px;border:2px solid #3DFFA0;border-radius:7px;background:#0D0D0D"></div><span style="font-size:17px;font-weight:700;color:white">UpsellBoost</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:300px"><div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.2);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Revenue Added</div><div style="font-size:22px;font-weight:800;color:#3DFFA0">Growing</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Acceptance</div><div style="font-size:22px;font-weight:800;color:white">High</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Upsells Shown</div><div style="font-size:22px;font-weight:800;color:white">Many</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Active Rules</div><div style="font-size:22px;font-weight:800;color:white">Live</div></div></div></div>'
-  },
-  {
-    title: 'Create Smart Upsell Rules',
-    desc: 'Build rules: when customer adds a product to cart, show them a related product at a discount. First matching rule wins.',
-    tip: 'Start with "Any order" to show upsells to everyone, then add specific rules.',
-    screen: '<div style="width:100%;height:100%;background:#F4F5F7;padding:14px;display:flex;flex-direction:column;gap:7px"><div style="font-size:11px;font-weight:700;color:#1A202C">Dynamic Offer Engine</div><div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:11px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">1</div><span style="font-size:12px;font-weight:600;flex:1">Rule 1</span><span style="font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Active</span></div><div style="font-size:11px;color:#64748B">IF Any order</div><div style="font-size:11px;color:#1DC974;font-weight:600">THEN Show Wireless Earbuds at 20% off</div></div><div style="background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:11px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">2</div><span style="font-size:12px;font-weight:600;flex:1">Rule 2</span><span style="font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Active</span></div><div style="font-size:11px;color:#64748B">IF Order above $50</div><div style="font-size:11px;color:#1DC974;font-weight:600">THEN Show Gift Card at 15% off</div></div></div>'
-  },
-  {
-    title: 'Carousel Upsells in Cart',
-    desc: 'Each rule shows products as a swipeable carousel in the cart drawer. Customers add with one tap.',
-    tip: 'Enable the countdown timer in Settings to create urgency.',
-    screen: '<div style="width:100%;height:100%;background:#F4F5F7;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:white;border-radius:12px;width:230px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden"><div style="background:#0D0D0D;padding:9px 13px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;font-weight:600;color:white">Your cart</span></div><div style="padding:9px 12px;border-bottom:1px solid #F1F5F9"><div style="font-size:11px;font-weight:600">Product in cart</div></div><div style="border:2px solid #3DFFA0;border-radius:10px;margin:8px;padding:9px"><div style="background:#FEE2E2;border-radius:5px;padding:3px 8px;text-align:center;margin-bottom:7px;font-size:10px;font-weight:700;color:#DC2626">Offer expires in 09:47</div><div style="font-size:9px;font-weight:700;color:#0D7A4E;text-transform:uppercase;margin-bottom:6px">Customers also buy</div><div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><div style="width:34px;height:34px;background:#E8FFF4;border-radius:6px;flex-shrink:0"></div><div><div style="font-size:11px;font-weight:600">Wireless Earbuds</div><div style="display:flex;gap:4px"><span style="font-size:11px;font-weight:700;color:#1DC974">20% OFF</span></div></div></div><button style="width:100%;background:#3DFFA0;color:#0D0D0D;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700">+ Add to cart</button></div><div style="margin:0 8px 8px;background:#0D0D0D;border-radius:7px;padding:8px;text-align:center;font-size:12px;font-weight:700;color:white">Check out</div></div></div>'
-  },
-  {
-    title: 'Low Stock Urgency',
-    desc: 'When a variant stock drops below your threshold, automatically show urgency badges on the upsell.',
-    tip: 'Set threshold to 5 units for best results.',
-    screen: '<div style="width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:8px"><div style="font-size:11px;font-weight:700;color:#1A202C">Low Stock Rule</div><div style="background:white;border-radius:10px;border:1.5px solid #E2E8F0;padding:12px"><div style="background:#FFFBEB;border-radius:8px;padding:10px;border:1px solid #FDE68A"><div style="font-size:9px;font-weight:700;color:#92400E;margin-bottom:6px">TRIGGER: WHEN STOCK DROPS BELOW</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px"><div style="background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A"><div style="font-size:8px;color:#92400E">Product</div><div style="font-size:10px;font-weight:600">T-shirt</div></div><div style="background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A"><div style="font-size:8px;color:#92400E">Variant</div><div style="font-size:10px;font-weight:600">Size S</div></div><div style="background:white;border-radius:5px;padding:5px;border:1px solid #FDE68A"><div style="font-size:8px;color:#DC2626">5 units</div></div></div></div></div><div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:12px"><div style="display:flex;align-items:center;gap:8px"><div style="width:38px;height:38px;background:#E8FFF4;border-radius:6px;flex-shrink:0"></div><div><div style="background:#FEE2E2;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:3px;font-size:10px;font-weight:700;color:#DC2626">Only 3 left!</div><div style="font-size:12px;font-weight:600">T-shirt Size S</div></div></div></div></div>'
-  },
-  {
-    title: 'Track Revenue in Analytics',
-    desc: 'Every accepted upsell is tracked in real time. See total revenue, acceptance rate, and all events.',
-    tip: 'Check Analytics weekly, find your best rules, then duplicate and test variations!',
-    screen: '<div style="width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:8px"><div style="font-size:11px;font-weight:700;color:#1A202C">Analytics</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"><div style="background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Revenue</div><div style="font-size:18px;font-weight:800;color:#1DC974">Growing</div></div><div style="background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Acceptance</div><div style="font-size:18px;font-weight:800">High</div></div><div style="background:white;border-radius:8px;padding:9px;border:1px solid #E2E8F0"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Avg Value</div><div style="font-size:18px;font-weight:800">Good</div></div></div><div style="background:white;border-radius:8px;padding:10px;border:1px solid #E2E8F0;flex:1"><div style="font-size:10px;font-weight:600;margin-bottom:7px">Recent events</div><div style="display:flex;flex-direction:column;gap:4px"><div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #F1F5F9"><span style="font-size:9px;color:#94A3B8;font-family:monospace">#4821</span><span style="font-size:10px;flex:1">Wireless Earbuds</span><span style="font-size:9px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 5px;border-radius:99px">Accepted</span></div><div style="display:flex;align-items:center;gap:6px;padding:4px 0"><span style="font-size:9px;color:#94A3B8;font-family:monospace">#4820</span><span style="font-size:10px;flex:1">Gift Card</span><span style="font-size:9px;font-weight:600;background:#F1F5F9;color:#64748B;padding:1px 5px;border-radius:99px">Declined</span></div></div></div></div>'
-  }
-];
-
-function startTour() { tourStep = 0; renderTourStep(); document.getElementById('tour-overlay').style.display = 'flex'; }
-
-function renderTourStep() {
-  var step = TOUR_STEPS[tourStep];
-  document.getElementById('tour-screen').innerHTML = step.screen;
-  document.getElementById('tour-title').textContent = step.title;
-  document.getElementById('tour-desc').textContent = step.desc;
-  document.getElementById('tour-tip').innerHTML = '<span style="font-size:16px;flex-shrink:0">&#128161;</span><span>' + step.tip + '</span>';
-  var dots = '';
-  for (var i = 0; i < TOUR_STEPS.length; i++) {
-    dots += '<div class="tour-dot' + (i === tourStep ? ' active' : '') + '"></div>';
-  }
-  document.getElementById('tour-dots').innerHTML = dots;
-  document.getElementById('tour-back').style.display = tourStep === 0 ? 'none' : 'block';
-  document.getElementById('tour-next').textContent = tourStep === TOUR_STEPS.length - 1 ? 'Get started!' : 'Next';
-}
-
-function tourNext() {
-  if (tourStep < TOUR_STEPS.length - 1) { tourStep++; renderTourStep(); }
-  else { skipTour(); showPage(null, 'offers'); setTimeout(function(){ showToast('Create your first rule to start upselling!'); }, 400); }
-}
-function tourBack() { if (tourStep > 0) { tourStep--; renderTourStep(); } }
-function skipTour() { document.getElementById('tour-overlay').style.display = 'none'; }
-function neverShowTour() { localStorage.setItem('ub2_tour_never', 'true'); document.getElementById('tour-overlay').style.display = 'none'; showToast('Tour hidden. Click Tour in nav to replay.'); }
-
-function filterProductSelect(selectId, query) {
-  var sel = document.getElementById(selectId);
-  if (!sel) return;
-  var q = query.toLowerCase();
-  var opts = sel.querySelectorAll('option');
-  opts.forEach(function(opt) {
-    if (!opt.value) return; // keep placeholder
-    opt.style.display = q === '' || opt.text.toLowerCase().includes(q) ? '' : 'none';
-  });
-  // Auto-select if only one visible match
-  var visible = Array.from(opts).filter(function(o) { return o.value && o.style.display !== 'none'; });
-  if (visible.length === 1) sel.value = visible[0].value;
-}
-
-function syncSearchLabels(n) {
-  // After values are set on hidden selects, update visible search inputs to show the label
-  var prefixes = ['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-','product-trigger-sel-'];
-  prefixes.forEach(function(prefix) {
-    var sel = document.getElementById(prefix + n);
-    var inp = document.getElementById('search-' + prefix + n);
-    if (!sel || !inp) return;
-    if (sel.value) {
-      var opt = Array.from(sel.options).find(function(o) { return o.value === sel.value; });
-      if (opt) inp.value = opt.text;
-    } else {
-      inp.value = '';
-    }
-  });
-}
-
-function showPage(event, name) {
-  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
-  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
-  document.getElementById('page-' + name).classList.add('active');
-  if (event && event.currentTarget) event.currentTarget.classList.add('active');
-  if (name === 'analytics') renderAnalytics();
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'pricing') updatePrices();
-  if (name === 'affiliate') calcAffiliate();
-}
-
-function toggleSwitch(e) { var el = e ? e.currentTarget : null; if (el && el.classList) el.classList.toggle('on'); }
-
-function showToast(msg) {
-  var t = document.getElementById('toast');
-  document.getElementById('toast-msg').textContent = msg;
-  t.classList.add('show');
-  setTimeout(function(){ t.classList.remove('show'); }, 3500);
-}
-
-function setGreeting() {
-  var h = new Date().getHours();
-  var g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  document.getElementById('dash-greeting').textContent = g + ' -- here\'s your upsell performance';
-}
-
-function buildChart() {
-  var wrap = document.getElementById('revenue-chart');
-  var days = ['M','T','W','T','F','S','S','M','T','W','T','F','S','S'];
-  var html = '';
-  for (var i = 0; i < days.length; i++) {
-    html += '<div class="chart-bar-col"><div class="chart-bar' + (i === days.length-1 ? ' today' : '') + '" style="height:4%"></div><span class="chart-label">' + days[i] + '</span></div>';
-  }
-  wrap.innerHTML = html;
-}
-
-function renderDashboard() {
-  var events = S.events;
-  var accepted = events.filter(function(e){ return e.accepted; });
-  var revenue = accepted.reduce(function(s, e){ return s + (e.revenue || 0); }, 0);
-  var rate = events.length > 0 ? Math.round(accepted.length / events.length * 100) : 0;
-  var sym = getCurrencySymbol();
-  document.getElementById('d-revenue').textContent = sym + revenue.toLocaleString();
-  document.getElementById('d-rate').textContent = rate + '%';
-  document.getElementById('d-shown').textContent = events.length;
-  document.getElementById('d-wa').textContent = events.filter(function(e){ return e.wa_sent; }).length;
-  document.getElementById('plan-bar').style.width = Math.min(events.length / 50 * 100, 100) + '%';
-  document.getElementById('plan-meta').textContent = events.length + ' / 50 orders used';
-  var aoList = document.getElementById('active-offers-list');
-  if (S.rules.length > 0) {
-    var html = '';
-    S.rules.slice(0, 3).forEach(function(r) {
-      html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)"><div style="width:8px;height:8px;border-radius:50%;background:var(--green-d);flex-shrink:0"></div><div style="flex:1"><div style="font-size:13px;font-weight:500">' + (r.product_name || 'Product') + ' -- ' + r.discount + '% off</div><div style="font-size:11px;color:var(--muted)">' + (r.condition_label || 'All orders') + '</div></div><span style="font-size:11px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:2px 8px;border-radius:99px">Active</span></div>';
-    });
-    aoList.innerHTML = html;
-    document.getElementById('offer-count').textContent = S.rules.length;
-  }
-  var tbody = document.getElementById('recent-events');
-  if (events.length === 0) return;
-  var rows = '';
-  events.slice(-5).reverse().forEach(function(e) {
-    rows += '<tr><td class="mono">#' + e.order_id + '</td><td>' + (e.product_name || '--') + '</td><td>' + (e.channel || 'post-purchase') + '</td><td>' + (e.accepted ? '<span class="badge badge-green">Accepted</span>' : '<span class="badge badge-gray">Declined</span>') + '</td><td style="color:' + (e.accepted ? 'var(--green-d)' : 'var(--soft)') + '">' + (e.accepted ? '+' + sym + e.revenue : '--') + '</td><td style="color:var(--muted);font-size:12px">' + new Date(e.date).toLocaleDateString() + '</td></tr>';
-  });
-  tbody.innerHTML = rows;
-}
-
-// Rule builder
-function getVariantOptions(productId) {
-  var p = productsWithVariants.find(function(x){ return String(x.id) === String(productId); });
-  if (!p || !p.variants) return '<option value="">Select variant...</option>';
-  var opts = '<option value="">All variants</option>';
-  p.variants.forEach(function(v){ opts += '<option value="' + v.id + '">' + v.title + ' (Stock: ' + v.inventory_quantity + ')</option>'; });
-  return opts;
-}
-
-function updateConditionUI(n) {
-  var ct = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
-  var vr = document.getElementById('variant-row-' + n);
-  var vl = document.getElementById('val-row-' + n);
-  var pr = document.getElementById('product-trigger-row-' + n);
-  if (vr) vr.style.display = 'none';
-  if (vl) vl.style.display = 'none';
-  if (pr) pr.style.display = 'none';
-  if (ct === 'low_stock') { if (vr) vr.style.display = 'block'; }
-  else if (ct === 'order_value') { if (vl) vl.style.display = 'block'; }
-  else if (ct === 'product') { if (pr) pr.style.display = 'block'; }
-  else if (ct === 'category') { if (vl) vl.style.display = 'block'; }
-  updateRuleSummary(n);
-}
-
-function updateVariantSelector(n) {
-  var ps = document.getElementById('trigger-product-' + n);
-  var vs = document.getElementById('trigger-variant-' + n);
-  if (ps && vs) vs.innerHTML = getVariantOptions(ps.value);
-  updateRuleSummary(n);
-}
-
-function updateRuleSummary(n) {
-  var ct = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
-  var labels = {'any':'Any order','product':'Contains product','order_value':'Order value above','category':'Category contains','cod':'COD order','low_stock':'Low stock alert','out_of_stock':'Out of stock product','deadstock':'Slow-moving product'};
-  var condText = labels[ct] || ct;
-
-  if (ct === 'product') {
-    var tp = document.getElementById('trigger-product-' + n);
-    if (tp && tp.value) condText = 'Cart has "' + tp.options[tp.selectedIndex].text + '"';
-  } else if (ct === 'order_value') {
-    var rv = document.getElementById('rv-' + n);
-    if (rv && rv.value) condText = 'Cart total above ' + rv.value;
-  } else if (ct === 'category') {
-    var cat = document.getElementById('cat-' + n);
-    if (cat && cat.value) condText = 'Category: ' + cat.value;
-  } else if (ct === 'low_stock') {
-    var lsp = document.getElementById('ls-product-' + n);
-    var lsv = document.getElementById('ls-variant-' + n);
-    var lst = document.getElementById('ls-threshold-' + n);
-    if (lsp && lsp.value) {
-      condText = lsp.options[lsp.selectedIndex].text;
-      if (lsv && lsv.value) condText += ' / ' + lsv.options[lsv.selectedIndex].text;
-      condText += ' stock < ' + (lst ? lst.value : 5);
-    }
-  }
-
-  var p1 = document.getElementById('rp-' + n);
-  var actionText = 'No product selected';
-  if (p1 && p1.value) {
-    actionText = p1.options[p1.selectedIndex].text;
-    var p2 = document.getElementById('rp2-' + n);
-    var p3 = document.getElementById('rp3-' + n);
-    var extras = (p2 && p2.value ? 1 : 0) + (p3 && p3.value ? 1 : 0);
-    if (extras > 0) actionText += ' +' + extras + ' more';
-    var disc = document.getElementById('rd-' + n);
-    actionText += ' at ' + (disc ? disc.value : 15) + '% off';
-  }
-  if (ct === 'out_of_stock') {
-    var oop = document.getElementById('oos-product-' + n);
-    if (oop && oop.value) condText = '"' + oop.options[oop.selectedIndex].text + '" is out of stock';
-    else condText = 'Product is out of stock';
-  } else if (ct === 'deadstock') {
-    var dsp = document.getElementById('ds-product-' + n);
-    var dsd = document.getElementById('ds-days-' + n);
-    if (dsp && dsp.value) condText = '"' + dsp.options[dsp.selectedIndex].text + '" slow-moving (' + (dsd ? dsd.value : 30) + ' days)';
-    else condText = 'Slow-moving product';
-  }
-  var te = document.querySelector('#rule-' + n + ' .rule-summary-title');
-  var se = document.querySelector('#rule-' + n + ' .rule-summary-sub');
-  if (te) te.textContent = 'IF ' + condText;
-  if (se) se.textContent = 'THEN -- ' + actionText;
-}
-
-
-function toggleRule(n) { var c = document.getElementById('rule-' + n); if (c) c.classList.toggle('rule-expanded'); }
-
-function duplicateRule(n) {
-  var cv = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : '';
-  var p1v = document.getElementById('rp-' + n) ? document.getElementById('rp-' + n).value : '';
-  var p2v = document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value : '';
-  var p3v = document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value : '';
-  var dv = document.getElementById('rd-' + n) ? document.getElementById('rd-' + n).value : '15';
-  addRule();
-  var newN = ruleCount;
-  setTimeout(function() {
-    var nc = document.getElementById('rc-' + newN);
-    if (nc && cv) { nc.value = cv; updateConditionUI(newN); }
-    if (document.getElementById('rp-' + newN) && p1v) document.getElementById('rp-' + newN).value = p1v;
-    if (document.getElementById('rp2-' + newN) && p2v) document.getElementById('rp2-' + newN).value = p2v;
-    if (document.getElementById('rp3-' + newN) && p3v) document.getElementById('rp3-' + newN).value = p3v;
-    if (document.getElementById('rd-' + newN) && dv) document.getElementById('rd-' + newN).value = dv;
-    updateRuleSummary(newN);
-    showToast('Rule duplicated');
-  }, 150);
-}
-
-function deleteRule(n) {
-  var el = document.getElementById('rule-' + n);
-  if (el) { el.style.opacity = '0'; el.style.transform = 'translateX(20px)'; setTimeout(function(){ el.remove(); }, 200); }
-}
-
-function addRule() {
-  ruleCount++;
-  var n = ruleCount;
-  var container = document.getElementById('rules-container');
-  var div = document.createElement('div');
-  div.className = 'rule-card rule-expanded';
-  div.id = 'rule-' + n;
-  var po = '<option value="">Select product...</option>';
-  products.forEach(function(p){ po += '<option value="' + p.id + '">' + p.title + '</option>'; });
-  // Build searchable datalist
-  var dlId = 'dl-products-' + n;
-  var dlHtml = '<datalist id="' + dlId + '">';
-  products.forEach(function(p){ dlHtml += '<option data-id="' + p.id + '" value="' + p.title + '">'; });
-  dlHtml += '</datalist>';
-
-  div.innerHTML =
-    // -- COLLAPSED SUMMARY ROW --
-    '<div class="rule-summary-row" onclick="toggleRule(' + n + ')">' +
-      '<div class="rule-num">' + n + '</div>' +
-      '<div class="rule-summary-text">' +
-        '<div class="rule-summary-title">IF Any order</div>' +
-        '<div class="rule-summary-sub">THEN -- No product selected</div>' +
-      '</div>' +
-      '<span class="rule-status">Active</span>' +
-      '<div class="rule-actions" onclick="event.stopPropagation()">' +
-        '<button class="rule-btn rule-btn-dup" onclick="duplicateRule(' + n + ')" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>' +
-        '<button class="rule-btn rule-btn-del" onclick="deleteRule(' + n + ')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>' +
-      '</div>' +
-      '<svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>' +
-    '</div>' +
-
-    // -- EXPANDED FIELDS --
-    '<div class="rule-fields">' +
-
-      // STEP 1: WHEN
-      '<div style="margin-bottom:18px">' +
-        '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">When should the upsell appear?</div>' +
-        '<select class="form-select" id="rc-' + n + '" onchange="onConditionChange(' + n + ')" style="margin-bottom:10px">' +
-          '<option value="any">Every order -- always show this upsell to everyone</option>' +
-          '<option value="product">Customer added a specific product to cart</option>' +
-          '<option value="order_value">Cart total is above a certain amount</option>' +
-          '<option value="category">Cart has a product from a specific category</option>' +
-          '<option value="out_of_stock">Customer is viewing a sold-out product page</option>' +
-          '<option value="deadstock">Push a slow-moving product with a discount</option>' +
-          '<option value="cod">Customer chose Cash on Delivery</option>' +
-          '<option value="low_stock">A product is almost sold out (show urgency badge)</option>' +
-        '</select>' +
-
-        // CONDITION: specific product in cart
-        '<div id="cond-product-' + n + '" style="display:none;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE">' +
-          '<label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label>' +
-          '<select class="form-select" id="trigger-product-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
-            '<option value="">Select product...</option>' + po +
-          '</select>' +
-        '</div>' +
-
-        // CONDITION: order value
-        '<div id="cond-value-' + n + '" style="display:none;background:#F0FDF4;border-radius:8px;padding:12px;border:1px solid #BBF7D0">' +
-          '<label class="form-label" style="font-size:11px;color:#166534">Show upsell when cart total is above</label>' +
-          '<div class="input-group"><input type="number" class="form-input" id="rv-' + n + '" placeholder="e.g. 50" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">in store currency</span></div>' +
-        '</div>' +
-
-        // CONDITION: category
-        '<div id="cond-category-' + n + '" style="display:none;background:#FFF7ED;border-radius:8px;padding:12px;border:1px solid #FED7AA">' +
-          '<label class="form-label" style="font-size:11px;color:#9A3412">Product category keyword (e.g. t-shirt, shoes)</label>' +
-          '<input type="text" class="form-input" id="cat-' + n + '" placeholder="e.g. t-shirt" oninput="updateRuleSummary(' + n + ')">' +
-        '</div>' +
-
-        // CONDITION: low stock
-        '<div id="cond-lowstock-' + n + '" style="display:none;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A">' +
-          '<div style="margin-bottom:12px"><div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:4px">Which product is almost sold out?</div><div style="font-size:12px;color:#B45309;line-height:1.6">When your stock of this product drops below the number you set, we will automatically show an urgency message like <b>"Only 3 left!"</b> on the upsell offer.</div></div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Which product?</label>' +
-              '<select class="form-select" id="ls-product-' + n + '" onchange="onLowStockProductChange(' + n + ')">' +
-                '<option value="">Select product...</option>' + po +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Which size/color? (optional)</label>' +
-              '<select class="form-select" id="ls-variant-' + n + '">' +
-                '<option value="">Select product first</option>' +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Show urgency when less than</label>' +
-              '<div class="input-group"><input type="number" class="form-input" id="ls-threshold-' + n + '" value="5" min="1" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">units</span></div>' +
-            '</div>' +
-          '</div>' +
-          '<div style=\"margin-top:12px;padding:10px 12px;background:white;border-radius:8px;border:1px solid #FDE68A\">' +
-            '<div style=\"font-size:12px;font-weight:600;color:#92400E;margin-bottom:4px\">What your customer will see:</div>' +
-            '<div style=\"font-size:12px;color:#B45309;line-height:1.6\">When stock of this product drops below your number, the upsell in Step 2 will show a red badge like <b>\"Only 3 left!\"</b> — this creates urgency and pushes customers to buy faster.</div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
-
-        // CONDITION: out of stock product
-        '<div id="cond-out_of_stock-' + n + '" style="display:none;background:#FEF2F2;border-radius:8px;padding:12px;border:1px solid #FECACA">' +
-          '<div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:4px">Which sold-out product triggers this?</div>' +
-          '<div style="font-size:12px;color:#B91C1C;margin-bottom:10px;line-height:1.6">When a customer visits this product page and it is out of stock, a popup will appear suggesting similar products from Step 2 below.</div>' +
-          '<select class="form-select" id="oos-product-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
-            '<option value="">Select the sold-out product...</option>' + po +
-          '</select>' +
-          '<div style="margin-top:8px;padding:8px;background:white;border-radius:6px;border:1px solid #FECACA;font-size:11px;color:#991B1B">' +
-            'Popup message your customer will see: <b>"This item is out of stock. Check out these similar products!"</b>' +
-          '</div>' +
-        '</div>' +
-
-        // CONDITION: deadstock / slow moving product
-        '<div id="cond-deadstock-' + n + '" style="display:none;background:#F5F3FF;border-radius:8px;padding:12px;border:1px solid #DDD6FE">' +
-          '<div style="font-size:13px;font-weight:600;color:#5B21B6;margin-bottom:4px">Which slow-moving product needs a push?</div>' +
-          '<div style="font-size:12px;color:#6D28D9;margin-bottom:10px;line-height:1.6">This product has been sitting in your inventory. We will show it to customers in the cart with a special discount to help you clear stock faster.</div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-            '<div>' +
-              '<label class="form-label" style="font-size:11px">The slow-moving product to push</label>' +
-              '<select class="form-select" id="ds-product-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
-                '<option value="">Select product...</option>' + po +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label class="form-label" style="font-size:11px">Not sold in the last (days)</label>' +
-              '<div class="input-group"><input type="number" class="form-input" id="ds-days-' + n + '" value="30" min="1" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">days</span></div>' +
-            '</div>' +
-          '</div>' +
-          '<div style="margin-top:8px;padding:8px;background:white;border-radius:6px;border:1px solid #DDD6FE;font-size:11px;color:#5B21B6">' +
-            'The discount you set in Step 2 below will automatically apply. Customer sees: <b>"Special deal! Get this while it lasts."</b>' +
-          '</div>' +
-        '</div>' +
-
-      // STEP 2: SHOW
-      '<div style="margin-bottom:18px">' +
-        '<div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What do you want to offer?</div>' +
-        '<div style="background:var(--green-l);border-radius:8px;padding:12px;border:1px solid rgba(29,201,116,0.2)">' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px" id="upsell-label-' + n + '">Offer this alternative product <span style="color:var(--red)">*</span></label>' +
-              '<select class="form-select rule-product" id="rp-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
-                '<option value="">Select product...</option>' + po +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Also offer this one <span style="color:var(--soft)">optional</span></label>' +
-              '<select class="form-select" id="rp2-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
-                '<option value="">None</option>' + po +
-              '</select>' +
-            '</div>' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Or this one too <span style="color:var(--soft)">optional</span></label>' +
-              '<select class="form-select" id="rp3-' + n + '" onchange="updateRuleSummary(' + n + ')">' +
-                '<option value="">None</option>' + po +
-              '</select>' +
-            '</div>' +
-          '</div>' +
-          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Give them a discount of</label>' +
-              '<div class="input-group"><input type="number" class="form-input" id="rd-' + n + '" value="15" min="1" max="90" oninput="updateRuleSummary(' + n + ')"><span class="input-suffix">% off</span></div>' +
-            '</div>' +
-            '<div>' +
-              '<label class="form-label" style="font-size:10px">Where to show this offer</label>' +
-              '<select class="form-select" id="rl-' + n + '">' +
-                '<option value="both">In cart AND after checkout (recommended)</option>' +
-                '<option value="cart">Only in cart (before checkout)</option>' +
-                '<option value="popup">Only after checkout (thank you page)</option>' +
-              '</select>' +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      '<div style="margin-top:8px;font-size:11px;color:var(--muted);line-height:1.6">' +
-        '&#128161; Tip: You can offer up to 3 products. Customers see them as a swipeable carousel and can add any one with a single tap.' +
-      '</div>' +
-      '</div>' +
-
-    '</div>'; // end rule-fields
-
-  container.appendChild(div);
-  // Add search boxes after DOM insertion (avoids quote nesting issues)
-  addProductSearch(n);
-  showToast('Rule ' + n + ' added -- select your trigger and upsell product!');
-}
-
-function addProductSearch(n) {
-  var prefixes = ['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-','product-trigger-sel-'];
-  prefixes.forEach(function(prefix) {
-    var sel = document.getElementById(prefix + n);
-    if (!sel) return;
-    if (document.getElementById('wrap-' + prefix + n)) return;
-
-    sel.style.display = 'none';
-
-    var wrapper = document.createElement('div');
-    wrapper.id = 'wrap-' + prefix + n;
-    wrapper.style.cssText = 'position:relative;width:100%;display:block';
-
-    var inp = document.createElement('input');
-    inp.type = 'text';
-    inp.id = 'search-' + prefix + n;
-    inp.autocomplete = 'off';
-    inp.placeholder = 'Search products...';
-    inp.style.cssText = 'width:100%;padding:8px 32px 8px 34px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;background:white;color:#1A202C;display:block';
-
-    var icon = document.createElement('span');
-    icon.style.cssText = 'position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
-    icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>';
-
-    var chev = document.createElement('span');
-    chev.style.cssText = 'position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
-    chev.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><polyline points="6 9 12 15 18 9"/></svg>';
-
-    var list = document.createElement('div');
-    list.style.cssText = 'display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';
-
-    function buildList(q) {
-      list.innerHTML = '';
-      var opts = Array.from(sel.options).filter(function(o) { return !!o.value; });
-      var filtered = q ? opts.filter(function(o) { return o.text.toLowerCase().includes(q.toLowerCase()); }) : opts;
-      if (filtered.length === 0) {
-        var empty = document.createElement('div');
-        empty.textContent = 'No products found';
-        empty.style.cssText = 'padding:10px 12px;color:#94A3B8;font-size:12px;text-align:center';
-        list.appendChild(empty);
-        return;
-      }
-      filtered.forEach(function(opt) {
-        var item = document.createElement('div');
-        var isSel = opt.value === sel.value;
-        item.style.cssText = 'padding:9px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F8FAFC;color:#1A202C;' + (isSel ? 'background:#F0FFF8;' : '');
-        var label = document.createElement('span');
-        label.textContent = opt.text;
-        item.appendChild(label);
-        if (isSel) {
-          var tick = document.createElement('span');
-          tick.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#1DC974;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>';
-          item.appendChild(tick);
-        }
-        item.onmouseover = function() { if (!isSel) this.style.background = '#F8FAFC'; };
-        item.onmouseout = function() { if (!isSel) this.style.background = ''; };
-        item.onmousedown = function(e) {
-          e.preventDefault();
-          sel.value = opt.value;
-          inp.value = opt.text;
-          list.style.display = 'none';
-          sel.dispatchEvent(new Event('change'));
-          if (typeof updateRuleSummary === 'function') updateRuleSummary(n);
-        };
-        list.appendChild(item);
-      });
-    }
-
-    inp.onfocus = function() { buildList(this.value); list.style.display = 'block'; };
-    inp.oninput = function() { buildList(this.value); list.style.display = 'block'; };
-    inp.onblur = function() { setTimeout(function() { list.style.display = 'none'; }, 200); };
-    inp.onclick = function() { if (list.style.display === 'none') { buildList(this.value); list.style.display = 'block'; } };
-    document.addEventListener('click', function(e) { if (!wrapper.contains(e.target)) list.style.display = 'none'; });
-
-    if (sel.value) {
-      var found = Array.from(sel.options).find(function(o) { return o.value === sel.value; });
-      if (found) inp.value = found.text;
-    }
-
-    sel.parentNode.insertBefore(wrapper, sel);
-    wrapper.appendChild(icon);
-    wrapper.appendChild(inp);
-    wrapper.appendChild(chev);
-    wrapper.appendChild(list);
-    wrapper.appendChild(sel);
-  });
-}
-
-function onConditionChange(n) {
-  var val = document.getElementById('rc-' + n).value;
-  // Hide all condition panels
-  ['product','value','category','lowstock','out_of_stock','deadstock'].forEach(function(type) {
-    var el = document.getElementById('cond-' + type + '-' + n);
-    if (el) el.style.display = 'none';
-  });
-  // Show relevant panel
-  if (val === 'product') document.getElementById('cond-product-' + n).style.display = 'block';
-  else if (val === 'order_value') document.getElementById('cond-value-' + n).style.display = 'block';
-  else if (val === 'category') document.getElementById('cond-category-' + n).style.display = 'block';
-  else if (val === 'low_stock') document.getElementById('cond-lowstock-' + n).style.display = 'block';
-  else if (val === 'out_of_stock') document.getElementById('cond-out_of_stock-' + n).style.display = 'block';
-  else if (val === 'deadstock') document.getElementById('cond-deadstock-' + n).style.display = 'block';
-
-  // For OOS: hide display location (always shows as popup)
-  var locRow = document.getElementById('loc-row-' + n);
-  if (locRow) locRow.style.display = val === 'out_of_stock' ? 'none' : 'block';
-
-  // For OOS: update label to make Step 2 clear
-  var upsellLabel = document.getElementById('upsell-label-' + n);
-  if (upsellLabel) {
-    upsellLabel.innerHTML = val === 'out_of_stock'
-      ? 'Show these alternatives in the popup <span style="color:var(--red)">*</span>'
-      : 'Offer this alternative product <span style="color:var(--red)">*</span>';
-  }
-  updateRuleSummary(n);
-}
-
-function onLowStockProductChange(n) {
-  var ps = document.getElementById('ls-product-' + n);
-  var vs = document.getElementById('ls-variant-' + n);
-  if (!ps || !vs) return;
-  var p = productsWithVariants.find(function(x){ return String(x.id) === String(ps.value); });
-  if (!p || !p.variants) { vs.innerHTML = '<option value="">No variants found</option>'; return; }
-  var opts = '<option value="">All variants</option>';
-  p.variants.forEach(function(v){ opts += '<option value="' + v.id + '">' + v.title + ' (Stock: ' + v.inventory_quantity + ')</option>'; });
-  vs.innerHTML = opts;
-  updateRuleSummary(n);
-}
-
-
-async function saveRules() {
-  var rules = [];
-  document.querySelectorAll('.rule-card').forEach(function(card, i) {
-    var n = card.id.split('-')[1];
-    var ctRaw = document.getElementById('rc-' + n) ? document.getElementById('rc-' + n).value : 'any';
-    var ctMap = {'any':'any','product':'contains_product','order_value':'order_value','category':'product_category','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};
-    var ct = ctMap[ctRaw] || ctRaw;
-    var ps = document.getElementById('rp-' + n);
-    var disc = document.getElementById('rd-' + n) ? document.getElementById('rd-' + n).value : '15';
-    var loc = document.getElementById('rl-' + n) ? document.getElementById('rl-' + n).value : 'both';
-    var cv = null;
-
-    if (ct === 'out_of_stock') {
-      cv = document.getElementById('oos-product-' + n) ? document.getElementById('oos-product-' + n).value : null;
-    } else if (ct === 'deadstock') {
-      var dsp = document.getElementById('ds-product-' + n) ? document.getElementById('ds-product-' + n).value : '';
-      var dsd = document.getElementById('ds-days-' + n) ? document.getElementById('ds-days-' + n).value : '30';
-      cv = dsp + ':' + dsd;
-    } else if (ct === 'low_stock') {
-      var lsp = document.getElementById('ls-product-' + n) ? document.getElementById('ls-product-' + n).value : '';
-      var lsv = document.getElementById('ls-variant-' + n) ? document.getElementById('ls-variant-' + n).value : '';
-      var lst = document.getElementById('ls-threshold-' + n) ? document.getElementById('ls-threshold-' + n).value : '5';
-      cv = lsp + ':' + lsv + ':' + lst;
-    } else if (ct === 'contains_product') {
-      cv = document.getElementById('trigger-product-' + n) ? document.getElementById('trigger-product-' + n).value : null;
-    } else if (ct === 'order_value') {
-      cv = document.getElementById('rv-' + n) ? document.getElementById('rv-' + n).value : null;
-    } else if (ct === 'product_category') {
-      cv = document.getElementById('cat-' + n) ? document.getElementById('cat-' + n).value : null;
-    }
-
-    // For OOS rules, upsell product is optional (popup shows whatever products are in rule)
-    // For all other rules, product 1 is required
-    var hasProduct = (ps && ps.value) || ct === 'out_of_stock';
-
-    console.log('Rule', n, '| condition:', ct, '| product:', ps ? ps.value : 'none', '| hasProduct:', hasProduct);
-
-    if (hasProduct) {
-      rules.push({
-        id: String(i + 1),
-        condition: ct,
-        condition_val: cv,
-        condition_label: ctRaw.replace(/_/g, ' '),
-        product_id: ps && ps.value ? ps.value : null,
-        product_id2: document.getElementById('rp2-' + n) ? document.getElementById('rp2-' + n).value || null : null,
-        product_id3: document.getElementById('rp3-' + n) ? document.getElementById('rp3-' + n).value || null : null,
-        product_name: ps && ps.value ? ps.options[ps.selectedIndex].text : 'OOS redirect',
-        discount: parseInt(disc),
-        display_location: loc
-      });
-    } else {
-      console.warn('Rule', n, 'skipped - no product selected');
-    }
-  });
-
-  console.log('Saving', rules.length, 'rules:', rules);
-  S.rules = rules;
-  document.getElementById('offer-count').textContent = rules.length;
-
-  if (rules.length === 0) {
-    showToast('Please select at least one product to upsell');
-    return;
-  }
-
-  try {
-    var r = await fetch(apiUrl('/api/rules'), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rules: rules, shop: getShop()})});
-    var d = await r.json();
-    console.log('Save response:', d);
-    if (d.success) showToast('Rules saved & activated!');
-    else showToast('Error: ' + (d.error || 'check server'));
-  } catch(e) {
-    console.error('Save error:', e);
-    showToast('Network error - check connection');
-  }
-}
-
-
-function previewRules() {
-  var t = document.querySelector('.rule-summary-title');
-  showToast(t ? t.textContent : 'No rules yet -- add one first!');
-}
-
-function filterAnalytics() {
-  var search = (document.getElementById('analytics-search')?.value || '').toLowerCase();
-  var ruleFilter = document.getElementById('analytics-rule-filter')?.value || '';
-  var resultFilter = document.getElementById('analytics-result-filter')?.value || '';
-  var sym = getCurrencySymbol();
-  var filtered = S.events.filter(function(x) {
-    var matchSearch = !search || (x.product_name || '').toLowerCase().includes(search);
-    var matchRule = !ruleFilter || (x.trigger_rule || x.channel || '').includes(ruleFilter);
-    var matchResult = !resultFilter ||
-      (resultFilter === 'accepted' && x.accepted) ||
-      (resultFilter === 'declined' && !x.accepted);
-    return matchSearch && matchRule && matchResult;
-  });
-  var tbody = document.getElementById('all-events-table');
-  if (!tbody) return;
-  if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7"><div class="empty" style="padding:20px">No events match your filter</div></td></tr>';
-    return;
-  }
-  var rows = '';
-  filtered.slice().reverse().forEach(function(x) {
-    rows += '<tr><td class="mono">#' + x.order_id + '</td><td>' + (x.product_name || '--') + '</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">' + (x.trigger_rule || 'all') + '</span></td><td>' + (x.channel || 'post-purchase') + '</td><td>' + (x.accepted ? '<span class="badge badge-green">Accepted</span>' : '<span class="badge badge-gray">Declined</span>') + '</td><td style="color:' + (x.accepted ? 'var(--green-d)' : 'var(--soft)') + '">' + (x.accepted ? '+' + sym + x.revenue : '--') + '</td><td style="color:var(--muted);font-size:12px">' + new Date(x.date).toLocaleDateString() + '</td></tr>';
-  });
-  tbody.innerHTML = rows;
-}
-
-function clearAnalyticsFilter() {
-  var s = document.getElementById('analytics-search');
-  var r = document.getElementById('analytics-rule-filter');
-  var re = document.getElementById('analytics-result-filter');
-  if (s) s.value = '';
-  if (r) r.value = '';
-  if (re) re.value = '';
-  renderAnalytics();
-}
-
-function renderAnalytics() {
-  var e = S.events;
-  var acc = e.filter(function(x){ return x.accepted; });
-  var rev = acc.reduce(function(s, x){ return s + (x.revenue || 0); }, 0);
-  var rate = e.length ? Math.round(acc.length / e.length * 100) : 0;
-  var avg = acc.length ? Math.round(rev / acc.length) : 0;
-  var sym = getCurrencySymbol();
-  document.getElementById('a-revenue').textContent = sym + rev.toLocaleString();
-  document.getElementById('a-rate').textContent = rate + '%';
-  document.getElementById('a-customers').textContent = new Set(e.map(function(x){ return x.order_id; })).size;
-  document.getElementById('a-avg').textContent = sym + avg.toLocaleString();
-  var tbody = document.getElementById('all-events-table');
-  if (e.length === 0) return;
-  var rows = '';
-  e.slice().reverse().forEach(function(x) {
-    rows += '<tr><td class="mono">#' + x.order_id + '</td><td>' + (x.product_name || '--') + '</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">' + (x.trigger_rule || 'all') + '</span></td><td>' + (x.channel || 'post-purchase') + '</td><td>' + (x.accepted ? '<span class="badge badge-green">Accepted</span>' : '<span class="badge badge-gray">Declined</span>') + '</td><td style="color:' + (x.accepted ? 'var(--green-d)' : 'var(--soft)') + '">' + (x.accepted ? '+' + sym + x.revenue : '--') + '</td><td style="color:var(--muted);font-size:12px">' + new Date(x.date).toLocaleDateString() + '</td></tr>';
-  });
-  tbody.innerHTML = rows;
-}
-
-function saveWA() { showToast('WhatsApp settings saved'); }
-
-async function saveSettings() {
-  var tt = document.getElementById('timer-toggle');
-  var tm = document.getElementById('timer-minutes');
-  var settings = {timer_enabled: tt ? tt.classList.contains('on') : false, timer_minutes: tm ? parseInt(tm.value) || 10 : 10, shop: getShop()};
-  S.settings = settings;
-  try {
-    await fetch(apiUrl('/api/settings'), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(settings)});
-    showToast('Settings saved');
-  } catch(e) { showToast('Settings saved locally'); }
-}
-
-function updatePrices() {
-  var isAnnual = currentBilling === 'annual';
-  var period = isAnnual ? 'per month, billed annually' : 'per month';
-  ['basic','pro','enterprise'].forEach(function(plan) {
-    var m = PRICES[plan];
-    var price = isAnnual ? +(m * 10 / 12).toFixed(2) : m;
-    var el = document.getElementById('price-' + plan);
-    var pel = document.getElementById('period-' + plan);
-    if (el) el.textContent = '$' + price;
-    if (pel) pel.textContent = period;
-  });
-}
-
-function setBilling(b) {
-  currentBilling = b;
-  ['monthly','annual'].forEach(function(x) {
-    var el = document.getElementById('bill-' + x);
-    if (el) { el.style.background = b === x ? 'var(--navy)' : 'transparent'; el.style.color = b === x ? 'var(--green)' : 'var(--muted)'; }
-  });
-  updatePrices();
-}
-
-function upgradePlan(plan) {
-  if (plan === 'enterprise') { window.open('mailto:support@upsellboost.app?subject=Enterprise Plan', '_blank'); return; }
-  var shop = getShop();
-  if (!shop) { showToast('Please open this from your Shopify admin'); return; }
-  window.location.href = '/billing/create?shop=' + encodeURIComponent(shop) + '&plan=' + plan;
-}
-
-function calcAffiliate() {
-  var count = parseInt(document.getElementById('aff-count') ? document.getElementById('aff-count').value : 5) || 5;
-  var plan = parseFloat(document.getElementById('aff-plan') ? document.getElementById('aff-plan').value : 24.99) || 24.99;
-  var monthly = Math.round(count * plan * 0.20 * 100) / 100;
-  var annual = Math.round(monthly * 12 * 100) / 100;
-  var el1 = document.getElementById('aff-monthly');
-  var el2 = document.getElementById('aff-annual');
-  var el3 = document.getElementById('aff-desc');
-  if (el1) el1.textContent = '$' + monthly.toFixed(2);
-  if (el2) el2.textContent = '$' + annual.toFixed(2);
-  if (el3) el3.textContent = count + ' merchants x $' + plan + ' x 20%';
-}
-
-function joinAffiliate() {
-  var name = document.getElementById('aff-name') ? document.getElementById('aff-name').value : '';
-  var email = document.getElementById('aff-email') ? document.getElementById('aff-email').value : '';
-  var phone = document.getElementById('aff-phone') ? document.getElementById('aff-phone').value : '';
-  if (!name || !email || !phone) { showToast('Please fill in your name, email and WhatsApp number'); return; }
-  showToast('Application submitted! We will contact you within 24 hours.');
-  ['aff-name','aff-email','aff-phone'].forEach(function(id){ var el = document.getElementById(id); if (el) el.value = ''; });
-}
-
-async function loadProducts() {
-  try {
-    var r = await fetch(apiUrl('/api/products'));
-    if (!r.ok) throw new Error();
-    var d = await r.json();
-    products = d.products || [];
-    document.querySelectorAll('select.rule-product, #default-product').forEach(function(s) {
-      var cur = s.value;
-      var html = '<option value="">Select product...</option>';
-      products.forEach(function(p){ html += '<option value="' + p.id + '">' + p.title + '</option>'; });
-      s.innerHTML = html;
-      if (cur) s.value = cur;
-    });
-  } catch(e) { products = [{id:'1',title:'Sample A'},{id:'2',title:'Sample B'}]; }
-}
-
-async function loadProductsWithVariants() {
-  try {
-    var r = await fetch(apiUrl('/api/products-with-variants'));
-    if (r.ok) { var d = await r.json(); productsWithVariants = d.products || []; }
-  } catch(e) {}
-}
-
-async function loadStore() {
-  try {
-    var r = await fetch(apiUrl('/api/store'));
-    if (r.ok) {
-      var d = await r.json();
-      document.getElementById('store-domain').textContent = d.domain || 'dev store';
-      if (d.domain) setShop(d.domain);
-      if (d.currency) saveCurrencySymbol(d.currency);
-    }
-  } catch(e) { document.getElementById('store-domain').textContent = 'dev store'; }
-}
-
-async function loadEvents() {
-  try {
-    var r = await fetch(apiUrl('/api/events'));
-    if (r.ok) { var d = await r.json(); S.events = d.events || []; }
-  } catch(e) {}
-}
-
-async function loadSettings() {
-  try {
-    var r = await fetch(apiUrl('/api/settings'));
-    if (r.ok) {
-      var d = await r.json();
-      var s = d.settings || {};
-      S.settings = s;
-      var tt = document.getElementById('timer-toggle');
-      var tm = document.getElementById('timer-minutes');
-      if (tt && s.timer_enabled) tt.classList.add('on');
-      if (tm && s.timer_minutes) tm.value = s.timer_minutes;
-    }
-  } catch(e) {}
-}
-
-async function loadRules() {
-  try {
-    var r = await fetch(apiUrl('/api/rules'));
-    if (r.ok) {
-      var d = await r.json();
-      S.rules = d.rules || [];
-      document.getElementById('offer-count').textContent = S.rules.length;
-      S.rules.forEach(function(rule) {
-        addRule();
-        var n = ruleCount;
-        setTimeout(function() {
-          // Re-populate product dropdowns with loaded products
-          var po = '';
-          products.forEach(function(p){ po += '<option value="' + p.id + '">' + p.title + '</option>'; });
-          var pBase = '<option value="">Select product...</option>' + po;
-          var pNone = '<option value="">None</option>' + po;
-
-          // Map each dropdown to the correct saved value from rule data
-          var dropdownMap = {
-            'rp-': rule.product_id || '',
-            'rp2-': rule.product_id2 || '',
-            'rp3-': rule.product_id3 || '',
-            'trigger-product-': (rule.condition === 'contains_product') ? (rule.condition_val || '') : '',
-            'oos-product-': (rule.condition === 'out_of_stock') ? (rule.condition_val || '') : '',
-            'ds-product-': (rule.condition === 'deadstock') ? ((rule.condition_val || '').split(':')[0] || '') : '',
-            'ls-product-': (rule.condition === 'low_stock') ? ((rule.condition_val || '').split(':')[0] || '') : ''
-          };
-
-          Object.keys(dropdownMap).forEach(function(prefix) {
-            var el = document.getElementById(prefix + n);
-            if (!el) return;
-            el.innerHTML = (prefix === 'rp2-' || prefix === 'rp3-') ? pNone : pBase;
-            if (dropdownMap[prefix]) el.value = dropdownMap[prefix];
-          });
-          // Set condition
-          var cm = {'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};
-          var cs = document.getElementById('rc-' + n);
-          if (cs) { cs.value = cm[rule.condition] || 'any'; onConditionChange(n); }
-
-          // Set condition values
-          if (rule.condition === 'contains_product') {
-            var tp = document.getElementById('trigger-product-' + n);
-            if (tp && rule.condition_val) tp.value = rule.condition_val;
-          } else if (rule.condition === 'order_value') {
-            var rv = document.getElementById('rv-' + n);
-            if (rv && rule.condition_val) rv.value = rule.condition_val;
-          } else if (rule.condition === 'product_category') {
-            var cat = document.getElementById('cat-' + n);
-            if (cat && rule.condition_val) cat.value = rule.condition_val;
-          } else if (rule.condition === 'low_stock' && rule.condition_val) {
-            var parts = rule.condition_val.split(':');
-            var lsp = document.getElementById('ls-product-' + n);
-            if (lsp && parts[0]) {
-              lsp.value = parts[0];
-              onLowStockProductChange(n);
-              setTimeout(function() {
-                var lsv = document.getElementById('ls-variant-' + n);
-                if (lsv && parts[1]) lsv.value = parts[1];
-              }, 300);
-            }
-            var lst = document.getElementById('ls-threshold-' + n);
-            if (lst && parts[2]) lst.value = parts[2];
-          } else if (rule.condition === 'out_of_stock') {
-            var oop = document.getElementById('oos-product-' + n);
-            if (oop && rule.condition_val) oop.value = rule.condition_val;
-          } else if (rule.condition === 'deadstock') {
-            var parts2 = (rule.condition_val || '').split(':');
-            var dsp2 = document.getElementById('ds-product-' + n);
-            if (dsp2 && parts2[0]) dsp2.value = parts2[0];
-            var dsd2 = document.getElementById('ds-days-' + n);
-            if (dsd2 && parts2[1]) dsd2.value = parts2[1];
-          }
-
-          // Set upsell products
-          var p1 = document.getElementById('rp-' + n); if (p1) p1.value = rule.product_id || '';
-          var p2 = document.getElementById('rp2-' + n); if (p2 && rule.product_id2) p2.value = rule.product_id2;
-          var p3 = document.getElementById('rp3-' + n); if (p3 && rule.product_id3) p3.value = rule.product_id3;
-          var di = document.getElementById('rd-' + n); if (di) di.value = rule.discount || 15;
-          var dl = document.getElementById('rl-' + n); if (dl && rule.display_location) dl.value = rule.display_location;
-
-          updateRuleSummary(n);
-          addProductSearch(n);
-          // Sync search input labels after values are set
-          syncSearchLabels(n);
-          var card = document.getElementById('rule-' + n);
-          if (card) card.classList.remove('rule-expanded');
-        }, 800);
-      });
-    }
-  } catch(e) { console.error('loadRules error:', e); }
-}
-
-// Migrate rules from 'default' shop to actual shop on first load
-async function migrateDefaultRules() {
-  var shop = getShop();
-  if (!shop || shop === 'default') return;
-  try {
-    // Check if there are rules under 'default'
-    var r = await fetch('/api/rules?shop=default');
-    if (!r.ok) return;
-    var d = await r.json();
-    var defaultRules = d.rules || [];
-    if (defaultRules.length === 0) return;
-    // Check if shop already has rules
-    var r2 = await fetch(apiUrl('/api/rules'));
-    if (!r2.ok) return;
-    var d2 = await r2.json();
-    if ((d2.rules || []).length > 0) return; // shop already has rules
-    // Migrate default rules to this shop
-    await fetch(apiUrl('/api/rules'), {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({rules: defaultRules, shop: shop})
-    });
-    console.log('Migrated', defaultRules.length, 'rules from default to', shop);
-  } catch(e) {}
-}
-
-
-window.addEventListener('load', async function() {
-  setGreeting();
-  buildChart();
-  await loadStore();
-  await loadProducts();
-  await loadProductsWithVariants();
-  await loadEvents();
-  await loadSettings();
-  await migrateDefaultRules();
-  await loadRules();
-  renderDashboard();
-  if (!localStorage.getItem('ub2_tour_never')) setTimeout(function(){ startTour(); }, 800);
-});
-
+var S={events:[],rules:[],settings:{}};
+var products=[];
+var productsWithVariants=[];
+var ruleCount=0;
+var tourStep=0;
+var currentBilling='monthly';
+var PRICES={free:0,basic:9.99,pro:24.99,enterprise:59.99};
+var CURRENT_SHOP=localStorage.getItem('ub2_shop')||'';
+function getShop(){if(CURRENT_SHOP)return CURRENT_SHOP;var p=new URLSearchParams(window.location.search);var shop=p.get('shop')||p.get('shopify-domain');if(shop){CURRENT_SHOP=shop;localStorage.setItem('ub2_shop',shop);return shop;}var host=p.get('host');if(host){try{var decoded=atob(host);var m=decoded.match(/([a-z0-9-]+\.myshopify\.com)/i);if(m){CURRENT_SHOP=m[1];localStorage.setItem('ub2_shop',m[1]);return m[1];}}catch(e){}}var saved=localStorage.getItem('ub2_shop');if(saved){CURRENT_SHOP=saved;return saved;}return 'upsell-test-store-hdtdvj2n.myshopify.com';}
+function setShop(domain){if(!domain)return;CURRENT_SHOP=domain;localStorage.setItem('ub2_shop',domain);}
+function apiUrl(path){var shop=getShop();return shop?path+(path.indexOf('?')>=0?'&':'?')+'shop='+encodeURIComponent(shop):path;}
+function getCurrencySymbol(){return localStorage.getItem('ub2_currency')||'$';}
+function saveCurrencySymbol(code){var map={'INR':'Rs.','USD':'$','EUR':'EUR ','GBP':'GBP ','AUD':'A$','CAD':'C$','SGD':'S$','AED':'AED ','MYR':'RM ','JPY':'JPY ','BRL':'R$','ZAR':'R '};localStorage.setItem('ub2_currency',map[code]||'$');}
+var TOUR_STEPS=[{title:'Welcome to UpsellBoost!',desc:'The smart upsell engine for Shopify merchants. Boost your AOV with intelligent cart and post-purchase upsells.',tip:'Most merchants see 15-25% increase in AOV within the first week.',screen:'<div style="width:100%;height:100%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:16px"><div style="display:flex;align-items:center;gap:10px"><div style="width:28px;height:28px;border:2px solid #3DFFA0;border-radius:7px;background:#0D0D0D"></div><span style="font-size:17px;font-weight:700;color:white">UpsellBoost</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:300px"><div style="background:#1A1A1A;border:1px solid rgba(61,255,160,0.2);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Revenue Added</div><div style="font-size:22px;font-weight:800;color:#3DFFA0">Growing</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Acceptance</div><div style="font-size:22px;font-weight:800;color:white">High</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Upsells Shown</div><div style="font-size:22px;font-weight:800;color:white">Many</div></div><div style="background:#1A1A1A;border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px"><div style="font-size:9px;color:#6B7280;text-transform:uppercase">Active Rules</div><div style="font-size:22px;font-weight:800;color:white">Live</div></div></div></div>'},
+{title:'Create Smart Upsell Rules',desc:'Build rules: when customer adds a product to cart, show them a related product at a discount. First matching rule wins.',tip:'Start with "Any order" to show upsells to everyone, then add specific rules.',screen:'<div style="width:100%;height:100%;background:#F4F5F7;padding:14px;display:flex;flex-direction:column;gap:7px"><div style="font-size:11px;font-weight:700;color:#1A202C">Dynamic Offer Engine</div><div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:11px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:18px;height:18px;border-radius:50%;background:#0D0D0D;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#3DFFA0">1</div><span style="font-size:12px;font-weight:600;flex:1">Rule 1</span><span style="font-size:10px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:1px 6px;border-radius:99px">Active</span></div><div style="font-size:11px;color:#64748B">IF Any order</div><div style="font-size:11px;color:#1DC974;font-weight:600">THEN Show Wireless Earbuds at 20% off</div></div></div>'},
+{title:'Carousel Upsells in Cart',desc:'Each rule shows products as a swipeable carousel in the cart drawer. Customers add with one tap.',tip:'Enable the countdown timer in Settings to create urgency.',screen:'<div style="width:100%;height:100%;background:#F4F5F7;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:white;border-radius:12px;width:230px;box-shadow:0 4px 20px rgba(0,0,0,0.1);overflow:hidden"><div style="background:#0D0D0D;padding:9px 13px"><span style="font-size:12px;font-weight:600;color:white">Your cart</span></div><div style="border:2px solid #3DFFA0;border-radius:10px;margin:8px;padding:9px"><div style="font-size:9px;font-weight:700;color:#0D7A4E;text-transform:uppercase;margin-bottom:6px">Customers also buy</div><button style="width:100%;background:#3DFFA0;color:#0D0D0D;border:none;border-radius:6px;padding:7px;font-size:11px;font-weight:700">+ Add to cart</button></div></div></div>'},
+{title:'Low Stock Urgency',desc:'When a variant stock drops below your threshold, automatically show urgency badges on the upsell.',tip:'Set threshold to 5 units for best results.',screen:'<div style="width:100%;height:100%;background:#F4F5F7;display:flex;align-items:center;justify-content:center;padding:12px"><div style="background:white;border-radius:10px;border:2px solid #3DFFA0;padding:12px;width:220px"><div style="background:#FEE2E2;border-radius:4px;padding:2px 6px;display:inline-block;margin-bottom:8px;font-size:10px;font-weight:700;color:#DC2626">Only 3 left!</div><div style="font-size:12px;font-weight:600">T-shirt Size S</div></div></div>'},
+{title:'Track Revenue in Analytics',desc:'Every accepted upsell is tracked in real time. See total revenue, acceptance rate, and all events.',tip:'Check Analytics weekly, find your best rules, then duplicate and test variations!',screen:'<div style="width:100%;height:100%;background:#F4F5F7;padding:12px;display:flex;flex-direction:column;gap:8px"><div style="font-size:11px;font-weight:700;color:#1A202C">Analytics</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px"><div style="background:white;border-radius:8px;padding:9px"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Revenue</div><div style="font-size:18px;font-weight:800;color:#1DC974">Growing</div></div><div style="background:white;border-radius:8px;padding:9px"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Acceptance</div><div style="font-size:18px;font-weight:800">High</div></div><div style="background:white;border-radius:8px;padding:9px"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase">Avg Value</div><div style="font-size:18px;font-weight:800">Good</div></div></div></div>'}];
+function startTour(){tourStep=0;renderTourStep();document.getElementById('tour-overlay').style.display='flex';}
+function renderTourStep(){var step=TOUR_STEPS[tourStep];document.getElementById('tour-screen').innerHTML=step.screen;document.getElementById('tour-title').textContent=step.title;document.getElementById('tour-desc').textContent=step.desc;document.getElementById('tour-tip').innerHTML='<span style="font-size:16px;flex-shrink:0">&#128161;</span><span>'+step.tip+'</span>';var dots='';for(var i=0;i<TOUR_STEPS.length;i++){dots+='<div class="tour-dot'+(i===tourStep?' active':'')+'"></div>';}document.getElementById('tour-dots').innerHTML=dots;document.getElementById('tour-back').style.display=tourStep===0?'none':'block';document.getElementById('tour-next').textContent=tourStep===TOUR_STEPS.length-1?'Get started!':'Next';}
+function tourNext(){if(tourStep<TOUR_STEPS.length-1){tourStep++;renderTourStep();}else{skipTour();showPage(null,'offers');setTimeout(function(){showToast('Create your first rule to start upselling!');},400);}}
+function tourBack(){if(tourStep>0){tourStep--;renderTourStep();}}
+function skipTour(){document.getElementById('tour-overlay').style.display='none';}
+function neverShowTour(){localStorage.setItem('ub2_tour_never','true');document.getElementById('tour-overlay').style.display='none';showToast('Tour hidden. Click Tour in nav to replay.');}
+function showPage(event,name){document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});document.getElementById('page-'+name).classList.add('active');if(event&&event.currentTarget)event.currentTarget.classList.add('active');if(name==='analytics')renderAnalytics();if(name==='dashboard')renderDashboard();if(name==='pricing')updatePrices();if(name==='affiliate')calcAffiliate();}
+function toggleSwitch(e){var el=e?e.currentTarget:null;if(el&&el.classList)el.classList.toggle('on');}
+function showToast(msg){var t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},3500);}
+function setGreeting(){var h=new Date().getHours();var g=h<12?'Good morning':h<17?'Good afternoon':'Good evening';document.getElementById('dash-greeting').textContent=g+' -- here\'s your upsell performance';}
+function buildChart(){var wrap=document.getElementById('revenue-chart');var days=['M','T','W','T','F','S','S','M','T','W','T','F','S','S'];var html='';for(var i=0;i<days.length;i++){html+='<div class="chart-bar-col"><div class="chart-bar'+(i===days.length-1?' today':'')+'" style="height:4%"></div><span class="chart-label">'+days[i]+'</span></div>';}wrap.innerHTML=html;}
+function renderDashboard(){var events=S.events;var accepted=events.filter(function(e){return e.accepted;});var revenue=accepted.reduce(function(s,e){return s+(e.revenue||0);},0);var rate=events.length>0?Math.round(accepted.length/events.length*100):0;var sym=getCurrencySymbol();document.getElementById('d-revenue').textContent=sym+revenue.toLocaleString();document.getElementById('d-rate').textContent=rate+'%';document.getElementById('d-shown').textContent=events.length;document.getElementById('d-wa').textContent=events.filter(function(e){return e.wa_sent;}).length;document.getElementById('plan-bar').style.width=Math.min(events.length/50*100,100)+'%';document.getElementById('plan-meta').textContent=events.length+' / 50 orders used';var aoList=document.getElementById('active-offers-list');if(S.rules.length>0){var html='';S.rules.slice(0,3).forEach(function(r){html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2)"><div style="width:8px;height:8px;border-radius:50%;background:var(--green-d);flex-shrink:0"></div><div style="flex:1"><div style="font-size:13px;font-weight:500">'+(r.product_name||'Product')+' -- '+r.discount+'% off</div><div style="font-size:11px;color:var(--muted)">'+(r.condition_label||'All orders')+'</div></div><span style="font-size:11px;font-weight:600;background:#E8FFF4;color:#0D7A4E;padding:2px 8px;border-radius:99px">Active</span></div>';});aoList.innerHTML=html;document.getElementById('offer-count').textContent=S.rules.length;}var tbody=document.getElementById('recent-events');if(events.length===0)return;var rows='';events.slice(-5).reverse().forEach(function(e){rows+='<tr><td class="mono">#'+e.order_id+'</td><td>'+(e.product_name||'--')+'</td><td>'+(e.channel||'post-purchase')+'</td><td>'+(e.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>')+'</td><td style="color:'+(e.accepted?'var(--green-d)':'var(--soft)') + '">'+(e.accepted?'+'+getCurrencySymbol()+e.revenue:'--')+'</td><td style="color:var(--muted);font-size:12px">'+new Date(e.date).toLocaleDateString()+'</td></tr>';});tbody.innerHTML=rows;}
+function getVariantOptions(productId){var p=productsWithVariants.find(function(x){return String(x.id)===String(productId);});if(!p||!p.variants)return'<option value="">Select variant...</option>';var opts='<option value="">All variants</option>';p.variants.forEach(function(v){opts+='<option value="'+v.id+'">'+v.title+' (Stock: '+v.inventory_quantity+')</option>';});return opts;}
+function toggleRule(n){var c=document.getElementById('rule-'+n);if(c)c.classList.toggle('rule-expanded');}
+function duplicateRule(n){var cv=document.getElementById('rc-'+n)?document.getElementById('rc-'+n).value:'';var p1v=document.getElementById('rp-'+n)?document.getElementById('rp-'+n).value:'';var p2v=document.getElementById('rp2-'+n)?document.getElementById('rp2-'+n).value:'';var p3v=document.getElementById('rp3-'+n)?document.getElementById('rp3-'+n).value:'';var dv=document.getElementById('rd-'+n)?document.getElementById('rd-'+n).value:'15';addRule();var newN=ruleCount;setTimeout(function(){var nc=document.getElementById('rc-'+newN);if(nc&&cv){nc.value=cv;onConditionChange(newN);}if(document.getElementById('rp-'+newN)&&p1v)document.getElementById('rp-'+newN).value=p1v;if(document.getElementById('rp2-'+newN)&&p2v)document.getElementById('rp2-'+newN).value=p2v;if(document.getElementById('rp3-'+newN)&&p3v)document.getElementById('rp3-'+newN).value=p3v;if(document.getElementById('rd-'+newN)&&dv)document.getElementById('rd-'+newN).value=dv;updateRuleSummary(newN);showToast('Rule duplicated');},150);}
+function deleteRule(n){var el=document.getElementById('rule-'+n);if(el){el.style.opacity='0';el.style.transform='translateX(20px)';setTimeout(function(){el.remove();},200);}}
+function updateRuleSummary(n){var ct=document.getElementById('rc-'+n)?document.getElementById('rc-'+n).value:'any';var labels={'any':'Any order','product':'Contains product','order_value':'Order value above','category':'Category contains','cod':'COD order','low_stock':'Low stock alert','out_of_stock':'Out of stock product','deadstock':'Slow-moving product'};var condText=labels[ct]||ct;if(ct==='product'){var tp=document.getElementById('trigger-product-'+n);if(tp&&tp.value)condText='Cart has "'+tp.options[tp.selectedIndex].text+'"';}else if(ct==='order_value'){var rv=document.getElementById('rv-'+n);if(rv&&rv.value)condText='Cart total above '+rv.value;}else if(ct==='category'){var cat=document.getElementById('cat-'+n);if(cat&&cat.value)condText='Category: '+cat.value;}else if(ct==='low_stock'){var lsp=document.getElementById('ls-product-'+n);if(lsp&&lsp.value){condText=lsp.options[lsp.selectedIndex].text;var lst=document.getElementById('ls-threshold-'+n);condText+=' stock < '+(lst?lst.value:5);}}else if(ct==='out_of_stock'){var oop=document.getElementById('oos-product-'+n);if(oop&&oop.value)condText='"'+oop.options[oop.selectedIndex].text+'" is out of stock';else condText='Product is out of stock';}else if(ct==='deadstock'){var dsp=document.getElementById('ds-product-'+n);if(dsp&&dsp.value)condText='"'+dsp.options[dsp.selectedIndex].text+'" slow-moving';else condText='Slow-moving product';}var p1=document.getElementById('rp-'+n);var actionText='No product selected';if(p1&&p1.value){actionText=p1.options[p1.selectedIndex].text;var p2=document.getElementById('rp2-'+n);var p3=document.getElementById('rp3-'+n);var extras=(p2&&p2.value?1:0)+(p3&&p3.value?1:0);if(extras>0)actionText+=' +'+extras+' more';var disc=document.getElementById('rd-'+n);actionText+=' at '+(disc?disc.value:15)+'% off';}var te=document.querySelector('#rule-'+n+' .rule-summary-title');var se=document.querySelector('#rule-'+n+' .rule-summary-sub');if(te)te.textContent='IF '+condText;if(se)se.textContent='THEN -- '+actionText;}
+function onConditionChange(n){var val=document.getElementById('rc-'+n).value;['product','value','category','lowstock','out_of_stock','deadstock'].forEach(function(type){var el=document.getElementById('cond-'+type+'-'+n);if(el)el.style.display='none';});if(val==='product')document.getElementById('cond-product-'+n).style.display='block';else if(val==='order_value')document.getElementById('cond-value-'+n).style.display='block';else if(val==='category')document.getElementById('cond-category-'+n).style.display='block';else if(val==='low_stock')document.getElementById('cond-lowstock-'+n).style.display='block';else if(val==='out_of_stock')document.getElementById('cond-out_of_stock-'+n).style.display='block';else if(val==='deadstock')document.getElementById('cond-deadstock-'+n).style.display='block';var upsellLabel=document.getElementById('upsell-label-'+n);if(upsellLabel){upsellLabel.innerHTML=val==='out_of_stock'?'Show these alternatives in the popup <span style="color:var(--red)">*</span>':'Offer this alternative product <span style="color:var(--red)">*</span>';}updateRuleSummary(n);}
+function onLowStockProductChange(n){var ps=document.getElementById('ls-product-'+n);var vs=document.getElementById('ls-variant-'+n);if(!ps||!vs)return;var p=productsWithVariants.find(function(x){return String(x.id)===String(ps.value);});if(!p||!p.variants){vs.innerHTML='<option value="">No variants found</option>';return;}var opts='<option value="">All variants</option>';p.variants.forEach(function(v){opts+='<option value="'+v.id+'">'+v.title+' (Stock: '+v.inventory_quantity+')</option>';});vs.innerHTML=opts;updateRuleSummary(n);}
+function addRule(){ruleCount++;var n=ruleCount;var container=document.getElementById('rules-container');var div=document.createElement('div');div.className='rule-card rule-expanded';div.id='rule-'+n;var po='<option value="">Select product...</option>';products.forEach(function(p){po+='<option value="'+p.id+'">'+p.title+'</option>';});div.innerHTML='<div class="rule-summary-row" onclick="toggleRule('+n+')"><div class="rule-num">'+n+'</div><div class="rule-summary-text"><div class="rule-summary-title">IF Any order</div><div class="rule-summary-sub">THEN -- No product selected</div></div><span class="rule-status">Active</span><div class="rule-actions" onclick="event.stopPropagation()"><button class="rule-btn rule-btn-dup" onclick="duplicateRule('+n+')" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><button class="rule-btn rule-btn-del" onclick="deleteRule('+n+')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></div><svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></div><div class="rule-fields"><div style="margin-bottom:18px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">When should the upsell appear?</div><select class="form-select" id="rc-'+n+'" onchange="onConditionChange('+n+')" style="margin-bottom:10px"><option value="any">Every order -- always show this upsell to everyone</option><option value="product">Customer added a specific product to cart</option><option value="order_value">Cart total is above a certain amount</option><option value="category">Cart has a product from a specific category</option><option value="out_of_stock">Customer is viewing a sold-out product page</option><option value="deadstock">Push a slow-moving product with a discount</option><option value="cod">Customer chose Cash on Delivery</option><option value="low_stock">A product is almost sold out (show urgency badge)</option></select><div id="cond-product-'+n+'" style="display:none;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE"><label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label><select class="form-select" id="trigger-product-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select product...</option>'+po+'</select></div><div id="cond-value-'+n+'" style="display:none;background:#F0FDF4;border-radius:8px;padding:12px;border:1px solid #BBF7D0"><label class="form-label" style="font-size:11px;color:#166534">Show upsell when cart total is above</label><div class="input-group"><input type="number" class="form-input" id="rv-'+n+'" placeholder="e.g. 50" oninput="updateRuleSummary('+n+')"><span class="input-suffix">in store currency</span></div></div><div id="cond-category-'+n+'" style="display:none;background:#FFF7ED;border-radius:8px;padding:12px;border:1px solid #FED7AA"><label class="form-label" style="font-size:11px;color:#9A3412">Product category keyword</label><input type="text" class="form-input" id="cat-'+n+'" placeholder="e.g. t-shirt" oninput="updateRuleSummary('+n+')"></div><div id="cond-lowstock-'+n+'" style="display:none;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A"><div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:8px">Which product is almost sold out?</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:10px">Which product?</label><select class="form-select" id="ls-product-'+n+'" onchange="onLowStockProductChange('+n+')"><option value="">Select product...</option>'+po+'</select></div><div><label class="form-label" style="font-size:10px">Which variant? (optional)</label><select class="form-select" id="ls-variant-'+n+'"><option value="">Select product first</option></select></div><div><label class="form-label" style="font-size:10px">Show urgency when less than</label><div class="input-group"><input type="number" class="form-input" id="ls-threshold-'+n+'" value="5" min="1" oninput="updateRuleSummary('+n+')"><span class="input-suffix">units</span></div></div></div></div><div id="cond-out_of_stock-'+n+'" style="display:none;background:#FEF2F2;border-radius:8px;padding:12px;border:1px solid #FECACA"><div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:4px">Which sold-out product triggers this?</div><select class="form-select" id="oos-product-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select the sold-out product...</option>'+po+'</select></div><div id="cond-deadstock-'+n+'" style="display:none;background:#F5F3FF;border-radius:8px;padding:12px;border:1px solid #DDD6FE"><div style="font-size:13px;font-weight:600;color:#5B21B6;margin-bottom:4px">Which slow-moving product needs a push?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">The slow-moving product</label><select class="form-select" id="ds-product-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select product...</option>'+po+'</select></div><div><label class="form-label" style="font-size:11px">Not sold in the last (days)</label><div class="input-group"><input type="number" class="form-input" id="ds-days-'+n+'" value="30" min="1" oninput="updateRuleSummary('+n+')"><span class="input-suffix">days</span></div></div></div></div></div><div style="margin-bottom:18px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What do you want to offer?</div><div style="background:var(--green-l);border-radius:8px;padding:12px;border:1px solid rgba(29,201,116,0.2)"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="form-label" style="font-size:10px" id="upsell-label-'+n+'">Offer this alternative product <span style="color:var(--red)">*</span></label><select class="form-select rule-product" id="rp-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select product...</option>'+po+'</select></div><div><label class="form-label" style="font-size:10px">Also offer this one <span style="color:var(--soft)">optional</span></label><select class="form-select" id="rp2-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">None</option>'+po+'</select></div><div><label class="form-label" style="font-size:10px">Or this one too <span style="color:var(--soft)">optional</span></label><select class="form-select" id="rp3-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">None</option>'+po+'</select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:10px">Give them a discount of</label><div class="input-group"><input type="number" class="form-input" id="rd-'+n+'" value="15" min="1" max="90" oninput="updateRuleSummary('+n+')"><span class="input-suffix">% off</span></div></div><div><label class="form-label" style="font-size:10px">Where to show this offer</label><select class="form-select" id="rl-'+n+'"><option value="both">In cart AND after checkout (recommended)</option><option value="cart">Only in cart (before checkout)</option><option value="popup">Only after checkout (thank you page)</option></select></div></div></div></div></div>';container.appendChild(div);addProductSearch(n);showToast('Rule '+n+' added!');}
+function addProductSearch(n){var prefixes=['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-'];prefixes.forEach(function(prefix){var sel=document.getElementById(prefix+n);if(!sel)return;if(document.getElementById('wrap-'+prefix+n))return;sel.style.display='none';var wrapper=document.createElement('div');wrapper.id='wrap-'+prefix+n;wrapper.style.cssText='position:relative;width:100%;display:block';var inp=document.createElement('input');inp.type='text';inp.id='search-'+prefix+n;inp.autocomplete='off';inp.placeholder='Search products...';inp.style.cssText='width:100%;padding:8px 32px 8px 34px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;background:white;color:#1A202C;display:block';var icon=document.createElement('span');icon.style.cssText='position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';icon.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>';var chev=document.createElement('span');chev.style.cssText='position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';chev.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><polyline points="6 9 12 15 18 9"/></svg>';var list=document.createElement('div');list.style.cssText='display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';function buildList(q){list.innerHTML='';var opts=Array.from(sel.options).filter(function(o){return!!o.value;});var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;if(filtered.length===0){var empty=document.createElement('div');empty.textContent='No products found';empty.style.cssText='padding:10px 12px;color:#94A3B8;font-size:12px;text-align:center';list.appendChild(empty);return;}filtered.forEach(function(opt){var item=document.createElement('div');item.style.cssText='padding:9px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F8FAFC;color:#1A202C;';var label=document.createElement('span');label.textContent=opt.text;item.appendChild(label);item.onmouseover=function(){this.style.background='#F8FAFC';};item.onmouseout=function(){this.style.background='';};item.onmousedown=function(e){e.preventDefault();sel.value=opt.value;inp.value=opt.text;list.style.display='none';sel.dispatchEvent(new Event('change'));if(typeof updateRuleSummary==='function')updateRuleSummary(n);};list.appendChild(item);});}inp.onfocus=function(){buildList(this.value);list.style.display='block';};inp.oninput=function(){buildList(this.value);list.style.display='block';};inp.onblur=function(){setTimeout(function(){list.style.display='none';},200);};inp.onclick=function(){if(list.style.display==='none'){buildList(this.value);list.style.display='block';}};if(sel.value){var found=Array.from(sel.options).find(function(o){return o.value===sel.value;});if(found)inp.value=found.text;}sel.parentNode.insertBefore(wrapper,sel);wrapper.appendChild(icon);wrapper.appendChild(inp);wrapper.appendChild(chev);wrapper.appendChild(list);wrapper.appendChild(sel);});}
+function syncSearchLabels(n){var prefixes=['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-'];prefixes.forEach(function(prefix){var sel=document.getElementById(prefix+n);var inp=document.getElementById('search-'+prefix+n);if(!sel||!inp)return;if(sel.value){var opt=Array.from(sel.options).find(function(o){return o.value===sel.value;});if(opt)inp.value=opt.text;}else{inp.value='';}});}
+async function saveRules(){var rules=[];document.querySelectorAll('.rule-card').forEach(function(card,i){var n=card.id.split('-')[1];var ctRaw=document.getElementById('rc-'+n)?document.getElementById('rc-'+n).value:'any';var ctMap={'any':'any','product':'contains_product','order_value':'order_value','category':'product_category','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};var ct=ctMap[ctRaw]||ctRaw;var ps=document.getElementById('rp-'+n);var disc=document.getElementById('rd-'+n)?document.getElementById('rd-'+n).value:'15';var loc=document.getElementById('rl-'+n)?document.getElementById('rl-'+n).value:'both';var cv=null;if(ct==='out_of_stock'){cv=document.getElementById('oos-product-'+n)?document.getElementById('oos-product-'+n).value:null;}else if(ct==='deadstock'){var dsp=document.getElementById('ds-product-'+n)?document.getElementById('ds-product-'+n).value:'';var dsd=document.getElementById('ds-days-'+n)?document.getElementById('ds-days-'+n).value:'30';cv=dsp+':'+dsd;}else if(ct==='low_stock'){var lsp=document.getElementById('ls-product-'+n)?document.getElementById('ls-product-'+n).value:'';var lsv=document.getElementById('ls-variant-'+n)?document.getElementById('ls-variant-'+n).value:'';var lst=document.getElementById('ls-threshold-'+n)?document.getElementById('ls-threshold-'+n).value:'5';cv=lsp+':'+lsv+':'+lst;}else if(ct==='contains_product'){cv=document.getElementById('trigger-product-'+n)?document.getElementById('trigger-product-'+n).value:null;}else if(ct==='order_value'){cv=document.getElementById('rv-'+n)?document.getElementById('rv-'+n).value:null;}else if(ct==='product_category'){cv=document.getElementById('cat-'+n)?document.getElementById('cat-'+n).value:null;}var hasProduct=(ps&&ps.value)||ct==='out_of_stock';if(hasProduct){rules.push({id:String(i+1),condition:ct,condition_val:cv,condition_label:ctRaw.replace(/_/g,' '),product_id:ps&&ps.value?ps.value:null,product_id2:document.getElementById('rp2-'+n)?document.getElementById('rp2-'+n).value||null:null,product_id3:document.getElementById('rp3-'+n)?document.getElementById('rp3-'+n).value||null:null,product_name:ps&&ps.value?ps.options[ps.selectedIndex].text:'OOS redirect',discount:parseInt(disc),display_location:loc});}});S.rules=rules;document.getElementById('offer-count').textContent=rules.length;if(rules.length===0){showToast('Please select at least one product to upsell');return;}try{var r=await fetch(apiUrl('/api/rules'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:rules,shop:getShop()})});var d=await r.json();if(d.success)showToast('Rules saved & activated!');else showToast('Error: '+(d.error||'check server'));}catch(e){showToast('Network error - check connection');}}
+function previewRules(){var t=document.querySelector('.rule-summary-title');showToast(t?t.textContent:'No rules yet -- add one first!');}
+function filterAnalytics(){var search=(document.getElementById('analytics-search')?.value||'').toLowerCase();var ruleFilter=document.getElementById('analytics-rule-filter')?.value||'';var resultFilter=document.getElementById('analytics-result-filter')?.value||'';var sym=getCurrencySymbol();var filtered=S.events.filter(function(x){var matchSearch=!search||(x.product_name||'').toLowerCase().includes(search);var matchRule=!ruleFilter||(x.trigger_rule||x.channel||'').includes(ruleFilter);var matchResult=!resultFilter||(resultFilter==='accepted'&&x.accepted)||(resultFilter==='declined'&&!x.accepted);return matchSearch&&matchRule&&matchResult;});var tbody=document.getElementById('all-events-table');if(!tbody)return;if(filtered.length===0){tbody.innerHTML='<tr><td colspan="7"><div class="empty" style="padding:20px">No events match your filter</div></td></tr>';return;}var rows='';filtered.slice().reverse().forEach(function(x){rows+='<tr><td class="mono">#'+x.order_id+'</td><td>'+(x.product_name||'--')+'</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">'+(x.trigger_rule||'all')+'</span></td><td>'+(x.channel||'post-purchase')+'</td><td>'+(x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>')+'</td><td style="color:'+(x.accepted?'var(--green-d)':'var(--soft)') + '">'+(x.accepted?'+'+getCurrencySymbol()+x.revenue:'--')+'</td><td style="color:var(--muted);font-size:12px">'+new Date(x.date).toLocaleDateString()+'</td></tr>';});tbody.innerHTML=rows;}
+function clearAnalyticsFilter(){var s=document.getElementById('analytics-search');var r=document.getElementById('analytics-rule-filter');var re=document.getElementById('analytics-result-filter');if(s)s.value='';if(r)r.value='';if(re)re.value='';renderAnalytics();}
+function renderAnalytics(){var e=S.events;var acc=e.filter(function(x){return x.accepted;});var rev=acc.reduce(function(s,x){return s+(x.revenue||0);},0);var rate=e.length?Math.round(acc.length/e.length*100):0;var avg=acc.length?Math.round(rev/acc.length):0;var sym=getCurrencySymbol();document.getElementById('a-revenue').textContent=sym+rev.toLocaleString();document.getElementById('a-rate').textContent=rate+'%';document.getElementById('a-customers').textContent=new Set(e.map(function(x){return x.order_id;})).size;document.getElementById('a-avg').textContent=sym+avg.toLocaleString();var tbody=document.getElementById('all-events-table');if(e.length===0)return;var rows='';e.slice().reverse().forEach(function(x){rows+='<tr><td class="mono">#'+x.order_id+'</td><td>'+(x.product_name||'--')+'</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">'+(x.trigger_rule||'all')+'</span></td><td>'+(x.channel||'post-purchase')+'</td><td>'+(x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>')+'</td><td style="color:'+(x.accepted?'var(--green-d)':'var(--soft)') + '">'+(x.accepted?'+'+getCurrencySymbol()+x.revenue:'--')+'</td><td style="color:var(--muted);font-size:12px">'+new Date(x.date).toLocaleDateString()+'</td></tr>';});tbody.innerHTML=rows;}
+function saveWA(){showToast('WhatsApp settings saved');}
+async function saveSettings(){var tt=document.getElementById('timer-toggle');var tm=document.getElementById('timer-minutes');var settings={timer_enabled:tt?tt.classList.contains('on'):false,timer_minutes:tm?parseInt(tm.value)||10:10,shop:getShop()};S.settings=settings;try{await fetch(apiUrl('/api/settings'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(settings)});showToast('Settings saved');}catch(e){showToast('Settings saved locally');}}
+function updatePrices(){var isAnnual=currentBilling==='annual';var period=isAnnual?'per month, billed annually':'per month';['basic','pro','enterprise'].forEach(function(plan){var m=PRICES[plan];var price=isAnnual?+(m*10/12).toFixed(2):m;var el=document.getElementById('price-'+plan);var pel=document.getElementById('period-'+plan);if(el)el.textContent='$'+price;if(pel)pel.textContent=period;});}
+function setBilling(b){currentBilling=b;['monthly','annual'].forEach(function(x){var el=document.getElementById('bill-'+x);if(el){el.style.background=b===x?'var(--navy)':'transparent';el.style.color=b===x?'var(--green)':'var(--muted)';}});updatePrices();}
+function upgradePlan(plan){if(plan==='enterprise'){window.open('mailto:support@upsellboost.app?subject=Enterprise Plan','_blank');return;}var shop=getShop();if(!shop){showToast('Please open this from your Shopify admin');return;}window.location.href='/billing/create?shop='+encodeURIComponent(shop)+'&plan='+plan;}
+function calcAffiliate(){var count=parseInt(document.getElementById('aff-count')?document.getElementById('aff-count').value:5)||5;var plan=parseFloat(document.getElementById('aff-plan')?document.getElementById('aff-plan').value:24.99)||24.99;var monthly=Math.round(count*plan*0.20*100)/100;var annual=Math.round(monthly*12*100)/100;var el1=document.getElementById('aff-monthly');var el2=document.getElementById('aff-annual');var el3=document.getElementById('aff-desc');if(el1)el1.textContent='$'+monthly.toFixed(2);if(el2)el2.textContent='$'+annual.toFixed(2);if(el3)el3.textContent=count+' merchants x $'+plan+' x 20%';}
+function joinAffiliate(){var name=document.getElementById('aff-name')?document.getElementById('aff-name').value:'';var email=document.getElementById('aff-email')?document.getElementById('aff-email').value:'';var phone=document.getElementById('aff-phone')?document.getElementById('aff-phone').value:'';if(!name||!email||!phone){showToast('Please fill in your name, email and WhatsApp number');return;}showToast('Application submitted! We will contact you within 24 hours.');['aff-name','aff-email','aff-phone'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}
+async function loadProducts(){try{var r=await fetch(apiUrl('/api/products'));if(!r.ok)throw new Error();var d=await r.json();products=d.products||[];document.querySelectorAll('select.rule-product, #default-product').forEach(function(s){var cur=s.value;var html='<option value="">Select product...</option>';products.forEach(function(p){html+='<option value="'+p.id+'">'+p.title+'</option>';});s.innerHTML=html;if(cur)s.value=cur;});}catch(e){products=[{id:'1',title:'Sample A'},{id:'2',title:'Sample B'}];}}
+async function loadProductsWithVariants(){try{var r=await fetch(apiUrl('/api/products-with-variants'));if(r.ok){var d=await r.json();productsWithVariants=d.products||[];}}catch(e){}}
+async function loadStore(){try{var r=await fetch(apiUrl('/api/store'));if(r.ok){var d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store';if(d.domain)setShop(d.domain);if(d.currency)saveCurrencySymbol(d.currency);}}catch(e){document.getElementById('store-domain').textContent='dev store';}}
+async function loadEvents(){try{var r=await fetch(apiUrl('/api/events'));if(r.ok){var d=await r.json();S.events=d.events||[];}}catch(e){}}
+async function loadSettings(){try{var r=await fetch(apiUrl('/api/settings'));if(r.ok){var d=await r.json();var s=d.settings||{};S.settings=s;var tt=document.getElementById('timer-toggle');var tm=document.getElementById('timer-minutes');if(tt&&s.timer_enabled)tt.classList.add('on');if(tm&&s.timer_minutes)tm.value=s.timer_minutes;}}catch(e){}}
+async function loadRules(){try{var r=await fetch(apiUrl('/api/rules'));if(r.ok){var d=await r.json();S.rules=d.rules||[];document.getElementById('offer-count').textContent=S.rules.length;S.rules.forEach(function(rule){addRule();var n=ruleCount;setTimeout(function(){var po='';products.forEach(function(p){po+='<option value="'+p.id+'">'+p.title+'</option>';});var pBase='<option value="">Select product...</option>'+po;var pNone='<option value="">None</option>'+po;var dropdownMap={'rp-':rule.product_id||'','rp2-':rule.product_id2||'','rp3-':rule.product_id3||'','trigger-product-':(rule.condition==='contains_product')?(rule.condition_val||''):'','oos-product-':(rule.condition==='out_of_stock')?(rule.condition_val||''):'','ds-product-':(rule.condition==='deadstock')?((rule.condition_val||'').split(':')[0]||''):'','ls-product-':(rule.condition==='low_stock')?((rule.condition_val||'').split(':')[0]||''):''};Object.keys(dropdownMap).forEach(function(prefix){var el=document.getElementById(prefix+n);if(!el)return;el.innerHTML=(prefix==='rp2-'||prefix==='rp3-')?pNone:pBase;if(dropdownMap[prefix])el.value=dropdownMap[prefix];});var cm={'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};var cs=document.getElementById('rc-'+n);if(cs){cs.value=cm[rule.condition]||'any';onConditionChange(n);}if(rule.condition==='order_value'){var rv=document.getElementById('rv-'+n);if(rv&&rule.condition_val)rv.value=rule.condition_val;}else if(rule.condition==='product_category'){var cat=document.getElementById('cat-'+n);if(cat&&rule.condition_val)cat.value=rule.condition_val;}else if(rule.condition==='low_stock'&&rule.condition_val){var parts=rule.condition_val.split(':');var lsp=document.getElementById('ls-product-'+n);if(lsp&&parts[0]){lsp.value=parts[0];onLowStockProductChange(n);setTimeout(function(){var lsv=document.getElementById('ls-variant-'+n);if(lsv&&parts[1])lsv.value=parts[1];},300);}var lst=document.getElementById('ls-threshold-'+n);if(lst&&parts[2])lst.value=parts[2];}else if(rule.condition==='deadstock'){var parts2=(rule.condition_val||'').split(':');var dsp2=document.getElementById('ds-product-'+n);if(dsp2&&parts2[0])dsp2.value=parts2[0];var dsd2=document.getElementById('ds-days-'+n);if(dsd2&&parts2[1])dsd2.value=parts2[1];}var p1=document.getElementById('rp-'+n);if(p1)p1.value=rule.product_id||'';var p2=document.getElementById('rp2-'+n);if(p2&&rule.product_id2)p2.value=rule.product_id2;var p3=document.getElementById('rp3-'+n);if(p3&&rule.product_id3)p3.value=rule.product_id3;var di=document.getElementById('rd-'+n);if(di)di.value=rule.discount||15;var dl=document.getElementById('rl-'+n);if(dl&&rule.display_location)dl.value=rule.display_location;updateRuleSummary(n);addProductSearch(n);syncSearchLabels(n);var card=document.getElementById('rule-'+n);if(card)card.classList.remove('rule-expanded');},800);});}}catch(e){console.error('loadRules error:',e);}}
+async function migrateDefaultRules(){var shop=getShop();if(!shop||shop==='default')return;try{var r=await fetch('/api/rules?shop=default');if(!r.ok)return;var d=await r.json();var defaultRules=d.rules||[];if(defaultRules.length===0)return;var r2=await fetch(apiUrl('/api/rules'));if(!r2.ok)return;var d2=await r2.json();if((d2.rules||[]).length>0)return;await fetch(apiUrl('/api/rules'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:defaultRules,shop:shop})});console.log('Migrated',defaultRules.length,'rules from default to',shop);}catch(e){}}
+window.addEventListener('load',async function(){setGreeting();buildChart();await loadStore();await loadProducts();await loadProductsWithVariants();await loadEvents();await loadSettings();await migrateDefaultRules();await loadRules();renderDashboard();if(!localStorage.getItem('ub2_tour_never'))setTimeout(function(){startTour();},800);});
 </script>
 
-<!-- FOOTER -->
 <footer style="margin-left:var(--sidebar);background:var(--navy);border-top:1px solid rgba(61,255,160,0.08);padding:32px 40px;">
   <div style="max-width:1200px;display:flex;align-items:flex-start;justify-content:space-between;gap:40px;flex-wrap:wrap">
-    
-    <!-- Brand -->
     <div style="flex:1;min-width:200px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:28px;height:28px;background:#0D0D0D;border:1.5px solid #3DFFA0;border-radius:7px;display:flex;align-items:center;justify-content:center">
-          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#3DFFA0;fill:none;stroke-width:2.5;stroke-linecap:round"><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/><line x1="4.22" y1="4.22" x2="7.76" y2="7.76"/><line x1="19.78" y1="4.22" x2="16.24" y2="7.76"/></svg>
-        </div>
+        <div style="width:28px;height:28px;background:#0D0D0D;border:1.5px solid #3DFFA0;border-radius:7px;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#3DFFA0;fill:none;stroke-width:2.5;stroke-linecap:round"><line x1="12" y1="2" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="2" y1="12" x2="7" y2="12"/><line x1="17" y1="12" x2="22" y2="12"/><line x1="4.22" y1="4.22" x2="7.76" y2="7.76"/><line x1="19.78" y1="4.22" x2="16.24" y2="7.76"/></svg></div>
         <span style="font-size:14px;font-weight:700;color:white">UpsellBoost</span>
         <span style="font-size:9px;font-weight:600;background:rgba(61,255,160,0.15);color:#3DFFA0;padding:2px 6px;border-radius:99px;border:1px solid rgba(61,255,160,0.3)">v2 Dynamic</span>
       </div>
       <p style="font-size:12px;color:#6B7280;line-height:1.6;max-width:240px">Smart upsell engine for Shopify merchants. Zero commission on your upsell revenue, ever.</p>
       <p style="font-size:11px;color:#374151;margin-top:10px">&copy; 2026 UpsellBoost. All rights reserved.</p>
     </div>
-
-    <!-- Privacy Policy -->
     <div style="flex:2;min-width:300px">
       <div style="font-size:11px;font-weight:700;color:#3DFFA0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Privacy Policy</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        
-        <div>
-          <div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">What we collect</div>
-          <p style="font-size:11px;color:#6B7280;line-height:1.7">Your store domain, access token, upsell rules, order events, and app settings. We never collect customer personal data — no names, emails, or addresses.</p>
-        </div>
-        
-        <div>
-          <div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">What we don't do</div>
-          <p style="font-size:11px;color:#6B7280;line-height:1.7">We never sell your data, use it for advertising, or share it with third parties. Your store data is yours only.</p>
-        </div>
-        
-        <div>
-          <div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">Data storage</div>
-          <p style="font-size:11px;color:#6B7280;line-height:1.7">Stored securely in Supabase (AWS-hosted). Access tokens are encrypted at rest. Data retained only while app is installed.</p>
-        </div>
-        
-        <div>
-          <div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">Data deletion</div>
-          <p style="font-size:11px;color:#6B7280;line-height:1.7">Uninstalling the app removes all your data within 48 hours. Email <span style="color:#3DFFA0">privacy@upsellboost.app</span> for immediate deletion.</p>
-        </div>
-
+        <div><div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">What we collect</div><p style="font-size:11px;color:#6B7280;line-height:1.7">Your store domain, access token, upsell rules, order events, and app settings. We never collect customer personal data — no names, emails, or addresses.</p></div>
+        <div><div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">What we don't do</div><p style="font-size:11px;color:#6B7280;line-height:1.7">We never sell your data, use it for advertising, or share it with third parties. Your store data is yours only.</p></div>
+        <div><div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">Data storage</div><p style="font-size:11px;color:#6B7280;line-height:1.7">Stored securely in Supabase (AWS-hosted). Access tokens are encrypted at rest. Data retained only while app is installed.</p></div>
+        <div><div style="font-size:12px;font-weight:600;color:white;margin-bottom:6px">Data deletion</div><p style="font-size:11px;color:#6B7280;line-height:1.7">Uninstalling the app removes all your data within 48 hours. Email <span style="color:#3DFFA0">privacy@upsellboost.app</span> for immediate deletion.</p></div>
       </div>
     </div>
-
-    <!-- Links -->
     <div style="min-width:140px">
-      <div style="font-size:11px;font-weight:700;color:#3DFFA0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Legal & Support</div>
+      <div style="font-size:11px;font-weight:700;color:#3DFFA0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px">Legal &amp; Support</div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <a href="/privacy" target="_blank" style="font-size:12px;color:#9CA3AF;text-decoration:none;display:flex;align-items:center;gap:6px">
-          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#3DFFA0;fill:none;stroke-width:2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Privacy Policy
-        </a>
-        <a href="mailto:privacy@upsellboost.app" style="font-size:12px;color:#9CA3AF;text-decoration:none;display:flex;align-items:center;gap:6px">
-          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#3DFFA0;fill:none;stroke-width:2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-          Support Email
-        </a>
-        <a href="https://shopify.com/partners" target="_blank" style="font-size:12px;color:#9CA3AF;text-decoration:none;display:flex;align-items:center;gap:6px">
-          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#3DFFA0;fill:none;stroke-width:2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-          Shopify Partners
-        </a>
-        <div style="font-size:11px;color:#374151;margin-top:6px;line-height:1.6">
-          Built with ❤️ for<br>Shopify merchants
-        </div>
+        <a href="/privacy" target="_blank" style="font-size:12px;color:#9CA3AF;text-decoration:none;display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#3DFFA0;fill:none;stroke-width:2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Privacy Policy</a>
+        <a href="mailto:privacy@upsellboost.app" style="font-size:12px;color:#9CA3AF;text-decoration:none;display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#3DFFA0;fill:none;stroke-width:2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Support Email</a>
+        <a href="https://shopify.com/partners" target="_blank" style="font-size:12px;color:#9CA3AF;text-decoration:none;display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:#3DFFA0;fill:none;stroke-width:2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>Shopify Partners</a>
       </div>
     </div>
-
   </div>
-
-  <!-- Bottom bar -->
   <div style="max-width:1200px;margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
     <p style="font-size:11px;color:#374151">By using UpsellBoost, you agree to our <a href="/privacy" target="_blank" style="color:#3DFFA0;text-decoration:none">Privacy Policy</a>. We follow Shopify's Partner API Terms of Service.</p>
     <p style="font-size:11px;color:#374151">Flat monthly fee &nbsp;·&nbsp; Zero commission &nbsp;·&nbsp; GDPR compliant</p>
   </div>
-
 </footer>
 
 </body>
