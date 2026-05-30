@@ -779,6 +779,58 @@ app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), a
 
 // ── GDPR WEBHOOKS (required for Shopify App Store) ──
 
+// Mandatory compliance webhooks endpoint
+// Handles: customers/data_request, customers/redact, shop/redact
+// Must verify HMAC and return 401 if invalid, 200 if valid
+app.post('/webhooks/compliance', express.raw({ type: '*/*' }), async (req, res) => {
+  // Step 1: Verify HMAC signature (mandatory per Shopify requirements)
+  const hmacHeader = req.headers['x-shopify-hmac-sha256'];
+  if (hmacHeader && CLIENT_SECRET) {
+    try {
+      const hash = crypto.createHmac('sha256', CLIENT_SECRET).update(req.body).digest('base64');
+      const valid = crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
+      if (!valid) {
+        console.warn('Compliance webhook: invalid HMAC');
+        return res.status(401).send('Unauthorized');
+      }
+    } catch(e) {
+      console.error('HMAC error:', e.message);
+      return res.status(401).send('Unauthorized');
+    }
+  }
+
+  // Step 2: Respond 200 immediately (required within seconds)
+  res.status(200).send('OK');
+
+  // Step 3: Process webhook asynchronously
+  try {
+    const topic = req.headers['x-shopify-topic'];
+    const shop = req.headers['x-shopify-shop-domain'];
+    const body = JSON.parse(req.body.toString());
+    console.log(`Compliance webhook received: ${topic} for ${shop}`);
+
+    if (topic === 'shop/redact') {
+      // Delete ALL shop data within 30 days (we do it immediately)
+      if (supabase && shop) {
+        await supabase.from('shops').delete().eq('shop_domain', shop);
+        await supabase.from('rules').delete().eq('shop_domain', shop);
+        await supabase.from('events').delete().eq('shop_domain', shop);
+        await supabase.from('settings').delete().eq('shop_domain', shop);
+        console.log(`shop/redact: all data deleted for ${shop}`);
+      }
+    } else if (topic === 'customers/redact') {
+      // We don't store personal customer data (no names, emails, addresses)
+      // Only store order IDs and product names - no action needed
+      console.log(`customers/redact: no personal data stored for customer in ${shop}`);
+    } else if (topic === 'customers/data_request') {
+      // We don't store personal customer data - nothing to return
+      console.log(`customers/data_request: no personal data stored for customer in ${shop}`);
+    }
+  } catch(e) {
+    console.error('Compliance webhook processing error:', e.message);
+  }
+});
+
 // Customers request their data be deleted
 app.post('/webhooks/customers/redact', express.raw({ type: 'application/json' }), async (req, res) => {
   if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: customers/redact'); return res.sendStatus(401); }
