@@ -167,13 +167,14 @@ tr:last-child td{border-bottom:none}
 <!-- ✅ App Bridge — Shopify CDN (satisfies embedded app checks) -->
 <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
 <script>
+try {
   var AppBridge = window['app-bridge'];
-  var actions = AppBridge.actions;
-  var createApp = AppBridge.default;
+  var actions = AppBridge ? AppBridge.actions : null;
+  var createApp = AppBridge ? AppBridge.default : null;
   var urlParams = new URLSearchParams(window.location.search);
   var host = urlParams.get('host');
   var shop = urlParams.get('shop');
-  if (host && AppBridge) {
+  if (host && AppBridge && createApp && actions) {
     var app = createApp({ apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host });
     var SessionToken = actions.SessionToken;
     async function getSessionToken() {
@@ -190,6 +191,7 @@ tr:last-child td{border-bottom:none}
       } catch(e) {}
     });
   }
+} catch(e) { /* Not in Shopify context */ }
 </script>
 </head>
 <body>
