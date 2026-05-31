@@ -529,20 +529,45 @@ app.post('/api/offer-multi', async (req, res) => {
 });
 
 app.post('/api/rules', async (req, res) => {
-  const shop = req.body.shop || req.shopDomain || LEGACY_STORE || 'default';
-  const rules = req.body.rules || [];
-  if (supabase) {
-    const { error: delErr } = await supabase.from('rules').delete().eq('shop_domain', shop);
-    if (delErr) console.error('Rules delete error:', delErr.message);
-    if (rules.length > 0) {
-      const safeRules = rules.map(r => ({ shop_domain: shop, condition: r.condition || 'any', condition_val: r.condition_val || null, condition_label: r.condition_label || r.condition || 'any', product_id: r.product_id || null, product_id2: r.product_id2 || null, product_id3: r.product_id3 || null, product_name: r.product_name || null, discount: r.discount || 15, display_location: r.display_location || 'both' }));
-      const { data: inserted, error: insErr } = await supabase.from('rules').insert(safeRules).select();
-      if (insErr) { console.error('Rules insert error:', insErr.message); return res.json({ success: false, error: insErr.message, count: 0 }); }
-      console.log(`Saved ${inserted?.length || 0} rules for ${shop}`);
-      return res.json({ success: true, count: inserted?.length || rules.length });
+  try {
+    const shop = (req.body && req.body.shop) || req.shopDomain || LEGACY_STORE || 'default';
+    const rules = (req.body && req.body.rules) || [];
+    console.log(`[rules POST] shop=${shop} rules=${rules.length}`);
+    if (supabase) {
+      const { error: delErr } = await supabase.from('rules').delete().eq('shop_domain', shop);
+      if (delErr) console.error('Rules delete error:', delErr.message);
+      if (rules.length > 0) {
+        const safeRules = rules.map(r => ({
+          shop_domain: shop,
+          condition: r.condition || 'any',
+          condition_val: r.condition_val || null,
+          condition_label: r.condition_label || r.condition || 'any',
+          product_id: r.product_id ? String(r.product_id) : null,
+          product_id2: r.product_id2 ? String(r.product_id2) : null,
+          product_id3: r.product_id3 ? String(r.product_id3) : null,
+          product_name: r.product_name || null,
+          discount: r.discount || 15,
+          display_location: r.display_location || 'both'
+        }));
+        const { data: inserted, error: insErr } = await supabase.from('rules').insert(safeRules).select();
+        if (insErr) {
+          console.error('Rules insert error:', insErr.message);
+          return res.json({ success: false, error: insErr.message });
+        }
+        console.log(`Saved ${inserted?.length || 0} rules for ${shop}`);
+        return res.json({ success: true, count: inserted?.length || rules.length });
+      }
+      return res.json({ success: true, count: 0 });
+    } else {
+      const data = readData();
+      data.rules = rules;
+      writeData(data);
+      return res.json({ success: true, count: rules.length });
     }
-  } else { const data = readData(); data.rules = rules; writeData(data); }
-  res.json({ success: true, count: rules.length });
+  } catch (e) {
+    console.error('[rules POST] Unhandled error:', e.message);
+    return res.status(500).json({ success: false, error: e.message });
+  }
 });
 
 app.get('/api/rules', async (req, res) => {
