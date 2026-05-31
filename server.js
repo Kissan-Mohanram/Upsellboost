@@ -48,15 +48,25 @@ function writeData(data) {
 let supabase = null;
 async function initSupabase() {
   const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!url || !key) { console.log('No Supabase — using file storage'); return; }
+  // Use service role key if available (bypasses RLS), otherwise anon key
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) { console.log('No Supabase credentials — using file storage'); return; }
   try {
     const { createClient } = require('@supabase/supabase-js');
     supabase = createClient(url, key);
-    const { error } = await supabase.from('rules').select('id').limit(1);
-    if (error) { console.log('Supabase error:', error.message); supabase = null; return; }
-    console.log('✓ Supabase connected');
-  } catch (e) { console.log('Supabase not available:', e.message); supabase = null; }
+    console.log('✓ Supabase client created, key type:', process.env.SUPABASE_SERVICE_KEY ? 'service_role' : 'anon');
+    // Test with a lightweight ping instead of SELECT on rules (which may have RLS)
+    const { error } = await supabase.from('shops').select('shop_domain').limit(1);
+    if (error) {
+      console.warn('Supabase test query failed:', error.message, '— but keeping connection');
+      // Don't null out supabase — let actual operations decide
+    } else {
+      console.log('✓ Supabase connection verified');
+    }
+  } catch (e) {
+    console.log('Supabase not available:', e.message);
+    supabase = null;
+  }
 }
 
 // ── SHOP HELPERS ──
@@ -695,6 +705,35 @@ app.post('/webhooks/customers/data_request', express.raw({ type: 'application/js
   if (!verifyWebhookHMAC(req)) return res.sendStatus(401);
   res.sendStatus(200);
   console.log('GDPR data_request — no personal data stored');
+});
+
+// ── DEBUG ENDPOINT ──
+app.get('/api/debug', async (req, res) => {
+  const shop = req.query.shop || LEGACY_STORE || 'test';
+  const result = {
+    supabase_connected: !!supabase,
+    key_type: process.env.SUPABASE_SERVICE_KEY ? 'service_role' : (process.env.SUPABASE_ANON_KEY ? 'anon' : 'none'),
+    supabase_url_set: !!process.env.SUPABASE_URL,
+    shopify_token_set: !!LEGACY_TOKEN,
+    shopify_store_set: !!LEGACY_STORE,
+    shop_param: shop,
+    tests: {}
+  };
+  if (supabase) {
+    // Test SELECT on rules
+    const { data: rd, error: re } = await supabase.from('rules').select('id').limit(1);
+    result.tests.rules_select = re ? `ERROR: ${re.message}` : `OK (${rd?.length || 0} rows)`;
+    // Test INSERT on rules
+    const testRule = { shop_domain: '__debug_test__', condition: 'any', product_id: '1', discount: 10 };
+    const { error: ie } = await supabase.from('rules').insert(testRule);
+    result.tests.rules_insert = ie ? `ERROR: ${ie.message}` : 'OK';
+    // Clean up test
+    if (!ie) await supabase.from('rules').delete().eq('shop_domain', '__debug_test__');
+    // Test rules for this shop
+    const { data: sr, error: se } = await supabase.from('rules').select('*').eq('shop_domain', shop);
+    result.tests.rules_for_shop = se ? `ERROR: ${se.message}` : `OK (${sr?.length || 0} rules)`;
+  }
+  res.json(result);
 });
 
 // ── HEALTH CHECK ──
