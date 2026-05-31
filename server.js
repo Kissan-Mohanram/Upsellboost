@@ -375,6 +375,7 @@ app.get('/api/store', async (req, res) => {
   } catch { res.json({ domain: shop, currency: 'USD' }); }
 });
 
+var PRODUCTS_CACHE = {}; // { shop: { data, ts } }
 app.get('/api/products', async (req, res) => {
   const shop = req.shopDomain || req.query.shop || LEGACY_STORE;
   const SAMPLE = [
@@ -383,6 +384,11 @@ app.get('/api/products', async (req, res) => {
     { id: '3', title: 'Sample Product C', variants: [{ id: 'v3', price: '299' }], images: [] }
   ];
   if (!shop) return res.json({ products: SAMPLE, source: 'sample_no_shop' });
+  // Serve from cache instantly if fresh (< 5 min) — avoids slow Shopify call on every load
+  const cached = PRODUCTS_CACHE[shop];
+  if (cached && (Date.now() - cached.ts) < 300000) {
+    return res.json({ products: cached.data, source: 'shopify_cached' });
+  }
   try {
     const token = await getShopToken(shop);
     console.log(`[products] shop=${shop} token=${token ? token.substring(0,8)+'...' : 'MISSING'}`);
@@ -400,9 +406,12 @@ app.get('/api/products', async (req, res) => {
     if (products.length === 0) {
       return res.json({ products: SAMPLE, source: 'sample_empty_store' });
     }
+    PRODUCTS_CACHE[shop] = { data: products, ts: Date.now() }; // cache for next time
     res.json({ products, source: 'shopify' });
   } catch (e) {
     console.error(`[products] Exception for ${shop}:`, e.message);
+    // serve stale cache if available rather than samples
+    if (cached) return res.json({ products: cached.data, source: 'shopify_stale' });
     res.json({ products: SAMPLE, source: 'sample_exception', error: e.message });
   }
 });
