@@ -905,6 +905,10 @@ function initApp(){
     return loadRules();
   }).then(function(){
     renderDashboard();
+    // Safety: after rules render, force all product dropdowns to rebuild from the loaded products.
+    // Covers the timing gap where dropdowns were built before products finished loading.
+    setTimeout(function(){updateProductSelects();},200);
+    setTimeout(function(){updateProductSelects();},1000);
     if(!localStorage.getItem('ub2_tour_never'))setTimeout(function(){startTour();},800);
   });
 }
