@@ -174,12 +174,15 @@ try {
   var createApp = AppBridge ? AppBridge.default : null;
   var urlParams = new URLSearchParams(window.location.search);
   var host = urlParams.get('host');
+  var shop = urlParams.get('shop');
   if (host && AppBridge && createApp) {
     // Initialize App Bridge so Shopify recognizes this as an embedded app.
-    // We do NOT request a session token — it times out in this setup and isn't needed.
-    createApp({ apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host });
+    // Pass shop too — App Bridge Next requires it (fixes "missing required configuration fields: shop").
+    var cfg = { apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host, forceRedirect: false };
+    if (shop) cfg.shop = shop;
+    createApp(cfg);
   }
-} catch(e) { /* not in Shopify context */ }
+} catch(e) { /* not in Shopify context — app still works via ?shop= param */ }
 </script>
 
 </head>
