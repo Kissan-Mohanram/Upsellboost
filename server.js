@@ -554,8 +554,22 @@ app.post('/api/rules', async (req, res) => {
     console.log(`[rules POST] shop=${shop} rules=${rules.length}`);
 
     if (supabase) {
-      // Delete existing rules for this shop
-      await supabase.from('rules').delete().eq('shop_domain', shop);
+      // Delete existing rules using direct REST API (more reliable than client library)
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+      const deleteRes = await fetch(
+        `${supabaseUrl}/rest/v1/rules?shop_domain=eq.${encodeURIComponent(shop)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          }
+        }
+      );
+      console.log(`[rules POST] DELETE status: ${deleteRes.status} for shop: ${shop}`);
 
       if (rules.length > 0) {
         // Stage 1: Try full insert with all columns
