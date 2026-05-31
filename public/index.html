@@ -290,11 +290,25 @@ try {
   <div id="rules-container"></div>
   <button class="add-rule-btn" onclick="addRule()"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;vertical-align:middle;margin-right:6px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add another rule</button>
   <div style="margin-top:20px">
-    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">Default offer (shown when no rule matches)</div>
     <div class="card" style="margin-bottom:0">
-      <div class="form-row">
-        <div class="form-group" style="margin-bottom:0"><label class="form-label">Default product</label><select class="form-select" id="default-product"><option value="">Select a product...</option></select></div>
-        <div class="form-group" style="margin-bottom:0"><label class="form-label">Default discount</label><div class="input-group"><input type="number" class="form-input" id="default-discount" value="10" min="1" max="90"><span class="input-suffix">% off</span></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">Default offer <span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">shown when no rule matches</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Enable to always show an upsell even when none of your rules apply</div>
+        </div>
+        <button class="toggle" id="default-offer-toggle" onclick="toggleDefaultOffer(event)" style="flex-shrink:0;margin-left:16px"><div class="toggle-ball"></div></button>
+      </div>
+      <div id="default-offer-fields" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border2)">
+        <div class="form-row">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Default product</label>
+            <select class="form-select" id="default-product"><option value="">Select a product...</option></select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Default discount</label>
+            <div class="input-group"><input type="number" class="form-input" id="default-discount" value="10" min="1" max="90"><span class="input-suffix">% off</span></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -609,7 +623,7 @@ try {
 
 <script>
 var S={events:[],rules:[],settings:{}};
-var products=[];
+var products=[{id:'s1',title:'Sample Product A'},{id:'s2',title:'Sample Product B'},{id:'s3',title:'Sample Product C'}];
 var productsWithVariants=[];
 var ruleCount=0;
 var tourStep=0;
@@ -642,9 +656,87 @@ function updateRuleSummary(n){var ct=document.getElementById('rc-'+n)?document.g
 function onConditionChange(n){var val=document.getElementById('rc-'+n).value;['product','value','category','lowstock','out_of_stock','deadstock'].forEach(function(type){var el=document.getElementById('cond-'+type+'-'+n);if(el)el.style.display='none';});if(val==='product')document.getElementById('cond-product-'+n).style.display='block';else if(val==='order_value')document.getElementById('cond-value-'+n).style.display='block';else if(val==='category')document.getElementById('cond-category-'+n).style.display='block';else if(val==='low_stock')document.getElementById('cond-lowstock-'+n).style.display='block';else if(val==='out_of_stock')document.getElementById('cond-out_of_stock-'+n).style.display='block';else if(val==='deadstock')document.getElementById('cond-deadstock-'+n).style.display='block';var upsellLabel=document.getElementById('upsell-label-'+n);if(upsellLabel){upsellLabel.innerHTML=val==='out_of_stock'?'Show these alternatives in the popup <span style="color:var(--red)">*</span>':'Offer this alternative product <span style="color:var(--red)">*</span>';}updateRuleSummary(n);}
 function onLowStockProductChange(n){var ps=document.getElementById('ls-product-'+n);var vs=document.getElementById('ls-variant-'+n);if(!ps||!vs)return;var p=productsWithVariants.find(function(x){return String(x.id)===String(ps.value);});if(!p||!p.variants){vs.innerHTML='<option value="">No variants found</option>';return;}var opts='<option value="">All variants</option>';p.variants.forEach(function(v){opts+='<option value="'+v.id+'">'+v.title+' (Stock: '+v.inventory_quantity+')</option>';});vs.innerHTML=opts;updateRuleSummary(n);}
 function addRule(silent){ruleCount++;var n=ruleCount;var container=document.getElementById('rules-container');var div=document.createElement('div');div.className='rule-card rule-expanded';div.id='rule-'+n;var po='<option value="">Select product...</option>';products.forEach(function(p){po+='<option value="'+p.id+'">'+p.title+'</option>';});div.innerHTML='<div class="rule-summary-row" onclick="toggleRule('+n+')"><div class="rule-num">'+n+'</div><div class="rule-summary-text"><div class="rule-summary-title">IF Any order</div><div class="rule-summary-sub">THEN -- No product selected</div></div><span class="rule-status">Active</span><div class="rule-actions" onclick="event.stopPropagation()"><button class="rule-btn rule-btn-dup" onclick="duplicateRule('+n+')" title="Duplicate"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button><button class="rule-btn rule-btn-del" onclick="deleteRule('+n+')" title="Delete"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg></button></div><svg class="rule-chevron" viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg></div><div class="rule-fields"><div style="margin-bottom:18px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">When should the upsell appear?</div><select class="form-select" id="rc-'+n+'" onchange="onConditionChange('+n+')" style="margin-bottom:10px"><option value="any">Every order -- always show this upsell to everyone</option><option value="product">Customer added a specific product to cart</option><option value="order_value">Cart total is above a certain amount</option><option value="category">Cart has a product from a specific category</option><option value="out_of_stock">Customer is viewing a sold-out product page</option><option value="deadstock">Push a slow-moving product with a discount</option><option value="cod">Customer chose Cash on Delivery</option><option value="low_stock">A product is almost sold out (show urgency badge)</option></select><div id="cond-product-'+n+'" style="display:none;background:var(--blue-l);border-radius:8px;padding:12px;border:1px solid #BFDBFE"><label class="form-label" style="font-size:11px;color:#1D4ED8">Which product triggers this rule?</label><select class="form-select" id="trigger-product-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select product...</option>'+po+'</select></div><div id="cond-value-'+n+'" style="display:none;background:#F0FDF4;border-radius:8px;padding:12px;border:1px solid #BBF7D0"><label class="form-label" style="font-size:11px;color:#166534">Show upsell when cart total is above</label><div class="input-group"><input type="number" class="form-input" id="rv-'+n+'" placeholder="e.g. 50" oninput="updateRuleSummary('+n+')"><span class="input-suffix">in store currency</span></div></div><div id="cond-category-'+n+'" style="display:none;background:#FFF7ED;border-radius:8px;padding:12px;border:1px solid #FED7AA"><label class="form-label" style="font-size:11px;color:#9A3412">Product category keyword</label><input type="text" class="form-input" id="cat-'+n+'" placeholder="e.g. t-shirt" oninput="updateRuleSummary('+n+')"></div><div id="cond-lowstock-'+n+'" style="display:none;background:#FFFBEB;border-radius:8px;padding:12px;border:1px solid #FDE68A"><div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:8px">Which product is almost sold out?</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:10px">Which product?</label><select class="form-select" id="ls-product-'+n+'" onchange="onLowStockProductChange('+n+')"><option value="">Select product...</option>'+po+'</select></div><div><label class="form-label" style="font-size:10px">Which variant? (optional)</label><select class="form-select" id="ls-variant-'+n+'"><option value="">Select product first</option></select></div><div><label class="form-label" style="font-size:10px">Show urgency when less than</label><div class="input-group"><input type="number" class="form-input" id="ls-threshold-'+n+'" value="5" min="1" oninput="updateRuleSummary('+n+')"><span class="input-suffix">units</span></div></div></div></div><div id="cond-out_of_stock-'+n+'" style="display:none;background:#FEF2F2;border-radius:8px;padding:12px;border:1px solid #FECACA"><div style="font-size:13px;font-weight:600;color:#991B1B;margin-bottom:4px">Which sold-out product triggers this?</div><select class="form-select" id="oos-product-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select the sold-out product...</option>'+po+'</select></div><div id="cond-deadstock-'+n+'" style="display:none;background:#F5F3FF;border-radius:8px;padding:12px;border:1px solid #DDD6FE"><div style="font-size:13px;font-weight:600;color:#5B21B6;margin-bottom:4px">Which slow-moving product needs a push?</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:11px">The slow-moving product</label><select class="form-select" id="ds-product-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select product...</option>'+po+'</select></div><div><label class="form-label" style="font-size:11px">Not sold in the last (days)</label><div class="input-group"><input type="number" class="form-input" id="ds-days-'+n+'" value="30" min="1" oninput="updateRuleSummary('+n+')"><span class="input-suffix">days</span></div></div></div></div></div><div style="margin-bottom:18px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">What do you want to offer?</div><div style="background:var(--green-l);border-radius:8px;padding:12px;border:1px solid rgba(29,201,116,0.2)"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px"><div><label class="form-label" style="font-size:10px" id="upsell-label-'+n+'">Offer this alternative product <span style="color:var(--red)">*</span></label><select class="form-select rule-product" id="rp-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">Select product...</option>'+po+'</select></div><div><label class="form-label" style="font-size:10px">Also offer this one <span style="color:var(--soft)">optional</span></label><select class="form-select" id="rp2-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">None</option>'+po+'</select></div><div><label class="form-label" style="font-size:10px">Or this one too <span style="color:var(--soft)">optional</span></label><select class="form-select" id="rp3-'+n+'" onchange="updateRuleSummary('+n+')"><option value="">None</option>'+po+'</select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div><label class="form-label" style="font-size:10px">Give them a discount of</label><div class="input-group"><input type="number" class="form-input" id="rd-'+n+'" value="15" min="1" max="90" oninput="updateRuleSummary('+n+')"><span class="input-suffix">% off</span></div></div><div><label class="form-label" style="font-size:10px">Where to show this offer</label><select class="form-select" id="rl-'+n+'"><option value="both">In cart AND after checkout (recommended)</option><option value="cart">Only in cart (before checkout)</option><option value="popup">Only after checkout (thank you page)</option></select></div></div></div></div></div>';container.appendChild(div);addProductSearch(n);if(!silent)showToast('Rule '+n+' added!');}
-function addProductSearch(n){var prefixes=['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-'];prefixes.forEach(function(prefix){var sel=document.getElementById(prefix+n);if(!sel)return;if(document.getElementById('wrap-'+prefix+n))return;sel.style.display='none';var wrapper=document.createElement('div');wrapper.id='wrap-'+prefix+n;wrapper.style.cssText='position:relative;width:100%;display:block';var inp=document.createElement('input');inp.type='text';inp.id='search-'+prefix+n;inp.autocomplete='off';inp.placeholder='Search products...';inp.style.cssText='width:100%;padding:8px 32px 8px 34px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;background:white;color:#1A202C;display:block';var icon=document.createElement('span');icon.style.cssText='position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';icon.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>';var chev=document.createElement('span');chev.style.cssText='position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';chev.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><polyline points="6 9 12 15 18 9"/></svg>';var list=document.createElement('div');list.style.cssText='display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';function buildList(q){list.innerHTML='';var opts=Array.from(sel.options).filter(function(o){return!!o.value;});var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;if(filtered.length===0){var empty=document.createElement('div');empty.textContent='No products found';empty.style.cssText='padding:10px 12px;color:#94A3B8;font-size:12px;text-align:center';list.appendChild(empty);return;}filtered.forEach(function(opt){var item=document.createElement('div');item.style.cssText='padding:9px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F8FAFC;color:#1A202C;';var label=document.createElement('span');label.textContent=opt.text;item.appendChild(label);item.onmouseover=function(){this.style.background='#F8FAFC';};item.onmouseout=function(){this.style.background='';};item.onmousedown=function(e){e.preventDefault();sel.value=opt.value;inp.value=opt.text;list.style.display='none';sel.dispatchEvent(new Event('change'));if(typeof updateRuleSummary==='function')updateRuleSummary(n);};list.appendChild(item);});}inp.onfocus=function(){buildList(this.value);list.style.display='block';};inp.oninput=function(){buildList(this.value);list.style.display='block';};inp.onblur=function(){setTimeout(function(){list.style.display='none';},200);};inp.onclick=function(){if(list.style.display==='none'){buildList(this.value);list.style.display='block';}};if(sel.value){var found=Array.from(sel.options).find(function(o){return o.value===sel.value;});if(found)inp.value=found.text;}sel.parentNode.insertBefore(wrapper,sel);wrapper.appendChild(icon);wrapper.appendChild(inp);wrapper.appendChild(chev);wrapper.appendChild(list);wrapper.appendChild(sel);});}
+function addProductSearch(n){
+  var prefixes=['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-'];
+  prefixes.forEach(function(prefix){
+    var sel=document.getElementById(prefix+n);
+    if(!sel)return;
+    if(document.getElementById('wrap-'+prefix+n))return;
+    sel.style.display='none';
+    var wrapper=document.createElement('div');
+    wrapper.id='wrap-'+prefix+n;
+    wrapper.style.cssText='position:relative;width:100%;display:block';
+    var inp=document.createElement('input');
+    inp.type='text';
+    inp.id='search-'+prefix+n;
+    inp.autocomplete='off';
+    inp.placeholder='Search products...';
+    inp.style.cssText='width:100%;padding:8px 32px 8px 34px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;box-sizing:border-box;background:white;color:#1A202C;display:block';
+    var icon=document.createElement('span');
+    icon.style.cssText='position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
+    icon.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>';
+    var chev=document.createElement('span');
+    chev.style.cssText='position:absolute;right:9px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
+    chev.innerHTML='<svg viewBox="0 0 24 24" width="11" height="11" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><polyline points="6 9 12 15 18 9"/></svg>';
+    var list=document.createElement('div');
+    list.style.cssText='display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';
+    function syncSelFromProducts(){
+      var hasOpts=Array.from(sel.options).filter(function(o){return!!o.value;}).length>0;
+      if(!hasOpts&&products&&products.length>0){
+        var isNone=prefix==='rp2-'||prefix==='rp3-';
+        sel.innerHTML=isNone?'<option value="">None</option>':'<option value="">Select product...</option>';
+        products.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.text=p.title;sel.appendChild(o);});
+      }
+    }
+    function buildList(q){
+      syncSelFromProducts();
+      list.innerHTML='';
+      var opts=Array.from(sel.options).filter(function(o){return!!o.value;});
+      var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;
+      if(filtered.length===0){
+        var empty=document.createElement('div');
+        empty.textContent='No products found';
+        empty.style.cssText='padding:10px 12px;color:#94A3B8;font-size:12px;text-align:center';
+        list.appendChild(empty);
+        return;
+      }
+      filtered.forEach(function(opt){
+        var item=document.createElement('div');
+        var isSel=opt.value===sel.value;
+        item.style.cssText='padding:9px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F8FAFC;color:#1A202C;'+(isSel?'background:#F0FFF8;':'');
+        var label=document.createElement('span');
+        label.textContent=opt.text;
+        item.appendChild(label);
+        if(isSel){var tick=document.createElement('span');tick.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#1DC974;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>';item.appendChild(tick);}
+        item.onmouseover=function(){if(!isSel)this.style.background='#F8FAFC';};
+        item.onmouseout=function(){if(!isSel)this.style.background='';};
+        item.onmousedown=function(e){
+          e.preventDefault();
+          sel.value=opt.value;
+          inp.value=opt.text;
+          list.style.display='none';
+          sel.dispatchEvent(new Event('change'));
+          if(typeof updateRuleSummary==='function')updateRuleSummary(n);
+        };
+        list.appendChild(item);
+      });
+    }
+    inp.onfocus=function(){buildList(this.value);list.style.display='block';};
+    inp.oninput=function(){buildList(this.value);list.style.display='block';};
+    inp.onblur=function(){setTimeout(function(){list.style.display='none';},200);};
+    inp.onclick=function(){if(list.style.display==='none'){buildList(this.value);list.style.display='block';}};
+    document.addEventListener('click',function(e){if(!wrapper.contains(e.target))list.style.display='none';});
+    if(sel.value){var found=Array.from(sel.options).find(function(o){return o.value===sel.value;});if(found)inp.value=found.text;}
+    sel.parentNode.insertBefore(wrapper,sel);
+    wrapper.appendChild(icon);
+    wrapper.appendChild(inp);
+    wrapper.appendChild(chev);
+    wrapper.appendChild(list);
+    wrapper.appendChild(sel);
+  });
+}
 function syncSearchLabels(n){var prefixes=['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-'];prefixes.forEach(function(prefix){var sel=document.getElementById(prefix+n);var inp=document.getElementById('search-'+prefix+n);if(!sel||!inp)return;if(sel.value){var opt=Array.from(sel.options).find(function(o){return o.value===sel.value;});if(opt)inp.value=opt.text;}else{inp.value='';}});}
-async function saveRules(){var rules=[];document.querySelectorAll('.rule-card').forEach(function(card,i){var n=card.id.split('-')[1];var ctRaw=document.getElementById('rc-'+n)?document.getElementById('rc-'+n).value:'any';var ctMap={'any':'any','product':'contains_product','order_value':'order_value','category':'product_category','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};var ct=ctMap[ctRaw]||ctRaw;var ps=document.getElementById('rp-'+n);var disc=document.getElementById('rd-'+n)?document.getElementById('rd-'+n).value:'15';var loc=document.getElementById('rl-'+n)?document.getElementById('rl-'+n).value:'both';var cv=null;if(ct==='out_of_stock'){cv=document.getElementById('oos-product-'+n)?document.getElementById('oos-product-'+n).value:null;}else if(ct==='deadstock'){var dsp=document.getElementById('ds-product-'+n)?document.getElementById('ds-product-'+n).value:'';var dsd=document.getElementById('ds-days-'+n)?document.getElementById('ds-days-'+n).value:'30';cv=dsp+':'+dsd;}else if(ct==='low_stock'){var lsp=document.getElementById('ls-product-'+n)?document.getElementById('ls-product-'+n).value:'';var lsv=document.getElementById('ls-variant-'+n)?document.getElementById('ls-variant-'+n).value:'';var lst=document.getElementById('ls-threshold-'+n)?document.getElementById('ls-threshold-'+n).value:'5';cv=lsp+':'+lsv+':'+lst;}else if(ct==='contains_product'){cv=document.getElementById('trigger-product-'+n)?document.getElementById('trigger-product-'+n).value:null;}else if(ct==='order_value'){cv=document.getElementById('rv-'+n)?document.getElementById('rv-'+n).value:null;}else if(ct==='product_category'){cv=document.getElementById('cat-'+n)?document.getElementById('cat-'+n).value:null;}var hasProduct=(ps&&ps.value)||ct==='out_of_stock';if(hasProduct){rules.push({id:String(i+1),condition:ct,condition_val:cv,condition_label:ctRaw.replace(/_/g,' '),product_id:ps&&ps.value?ps.value:null,product_id2:document.getElementById('rp2-'+n)?document.getElementById('rp2-'+n).value||null:null,product_id3:document.getElementById('rp3-'+n)?document.getElementById('rp3-'+n).value||null:null,product_name:ps&&ps.value?ps.options[ps.selectedIndex].text:'OOS redirect',discount:parseInt(disc),display_location:loc});}});S.rules=rules;document.getElementById('offer-count').textContent=rules.length;if(rules.length===0){showToast('Please select at least one product to upsell');return;}try{var r=await fetch(apiUrl('/api/rules'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:rules,shop:getShop()})});var d=await r.json();if(d.success)showToast('Rules saved & activated!');else showToast('Error: '+(d.error||'check server'));}catch(e){showToast('Network error - check connection');}}
+async function saveRules(){var rules=[];document.querySelectorAll('.rule-card').forEach(function(card,i){var n=card.id.split('-')[1];var ctRaw=document.getElementById('rc-'+n)?document.getElementById('rc-'+n).value:'any';var ctMap={'any':'any','product':'contains_product','order_value':'order_value','category':'product_category','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};var ct=ctMap[ctRaw]||ctRaw;var ps=document.getElementById('rp-'+n);var disc=document.getElementById('rd-'+n)?document.getElementById('rd-'+n).value:'15';var loc=document.getElementById('rl-'+n)?document.getElementById('rl-'+n).value:'both';var cv=null;if(ct==='out_of_stock'){cv=document.getElementById('oos-product-'+n)?document.getElementById('oos-product-'+n).value:null;}else if(ct==='deadstock'){var dsp=document.getElementById('ds-product-'+n)?document.getElementById('ds-product-'+n).value:'';var dsd=document.getElementById('ds-days-'+n)?document.getElementById('ds-days-'+n).value:'30';cv=dsp+':'+dsd;}else if(ct==='low_stock'){var lsp=document.getElementById('ls-product-'+n)?document.getElementById('ls-product-'+n).value:'';var lsv=document.getElementById('ls-variant-'+n)?document.getElementById('ls-variant-'+n).value:'';var lst=document.getElementById('ls-threshold-'+n)?document.getElementById('ls-threshold-'+n).value:'5';cv=lsp+':'+lsv+':'+lst;}else if(ct==='contains_product'){cv=document.getElementById('trigger-product-'+n)?document.getElementById('trigger-product-'+n).value:null;}else if(ct==='order_value'){cv=document.getElementById('rv-'+n)?document.getElementById('rv-'+n).value:null;}else if(ct==='product_category'){cv=document.getElementById('cat-'+n)?document.getElementById('cat-'+n).value:null;}var hasProduct=(ps&&ps.value)||ct==='out_of_stock';if(hasProduct){rules.push({id:String(i+1),condition:ct,condition_val:cv,condition_label:ctRaw.replace(/_/g,' '),product_id:ps&&ps.value?ps.value:null,product_id2:document.getElementById('rp2-'+n)?document.getElementById('rp2-'+n).value||null:null,product_id3:document.getElementById('rp3-'+n)?document.getElementById('rp3-'+n).value||null:null,product_name:ps&&ps.value?ps.options[ps.selectedIndex].text:'OOS redirect',discount:parseInt(disc),display_location:loc});}});S.rules=rules;document.getElementById('offer-count').textContent=rules.length;if(rules.length===0){showToast('Please select at least one product to upsell');return;}try{var r=await fetch(apiUrl('/api/rules'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:rules,shop:getShop()})});var text=await r.text();var d;try{d=JSON.parse(text);}catch(pe){console.error('Non-JSON response:',text);showToast('Server error - check Railway logs');return;}if(d.success)showToast('Rules saved & activated!');else showToast('Error: '+(d.error||'check server'));}catch(e){console.error('Save error:',e);showToast('Save failed: '+(e.message||'network error'));}}
 function previewRules(){var t=document.querySelector('.rule-summary-title');showToast(t?t.textContent:'No rules yet -- add one first!');}
 function filterAnalytics(){var search=(document.getElementById('analytics-search')?.value||'').toLowerCase();var ruleFilter=document.getElementById('analytics-rule-filter')?.value||'';var resultFilter=document.getElementById('analytics-result-filter')?.value||'';var sym=getCurrencySymbol();var filtered=S.events.filter(function(x){var matchSearch=!search||(x.product_name||'').toLowerCase().includes(search);var matchRule=!ruleFilter||(x.trigger_rule||x.channel||'').includes(ruleFilter);var matchResult=!resultFilter||(resultFilter==='accepted'&&x.accepted)||(resultFilter==='declined'&&!x.accepted);return matchSearch&&matchRule&&matchResult;});var tbody=document.getElementById('all-events-table');if(!tbody)return;if(filtered.length===0){tbody.innerHTML='<tr><td colspan="7"><div class="empty" style="padding:20px">No events match your filter</div></td></tr>';return;}var rows='';filtered.slice().reverse().forEach(function(x){rows+='<tr><td class="mono">#'+x.order_id+'</td><td>'+(x.product_name||'--')+'</td><td><span style="font-size:11px;background:var(--bg);padding:2px 7px;border-radius:4px">'+(x.trigger_rule||'all')+'</span></td><td>'+(x.channel||'post-purchase')+'</td><td>'+(x.accepted?'<span class="badge badge-green">Accepted</span>':'<span class="badge badge-gray">Declined</span>')+'</td><td style="color:'+(x.accepted?'var(--green-d)':'var(--soft)') + '">'+(x.accepted?'+'+getCurrencySymbol()+x.revenue:'--')+'</td><td style="color:var(--muted);font-size:12px">'+new Date(x.date).toLocaleDateString()+'</td></tr>';});tbody.innerHTML=rows;}
 function clearAnalyticsFilter(){var s=document.getElementById('analytics-search');var r=document.getElementById('analytics-rule-filter');var re=document.getElementById('analytics-result-filter');if(s)s.value='';if(r)r.value='';if(re)re.value='';renderAnalytics();}
@@ -656,7 +748,69 @@ function setBilling(b){currentBilling=b;['monthly','annual'].forEach(function(x)
 function upgradePlan(plan){if(plan==='enterprise'){window.open('mailto:support@upsellboost.app?subject=Enterprise Plan','_blank');return;}var shop=getShop();if(!shop){showToast('Please open this from your Shopify admin');return;}window.location.href='/billing/create?shop='+encodeURIComponent(shop)+'&plan='+plan;}
 function calcAffiliate(){var count=parseInt(document.getElementById('aff-count')?document.getElementById('aff-count').value:5)||5;var plan=parseFloat(document.getElementById('aff-plan')?document.getElementById('aff-plan').value:24.99)||24.99;var monthly=Math.round(count*plan*0.20*100)/100;var annual=Math.round(monthly*12*100)/100;var el1=document.getElementById('aff-monthly');var el2=document.getElementById('aff-annual');var el3=document.getElementById('aff-desc');if(el1)el1.textContent='$'+monthly.toFixed(2);if(el2)el2.textContent='$'+annual.toFixed(2);if(el3)el3.textContent=count+' merchants x $'+plan+' x 20%';}
 function joinAffiliate(){var name=document.getElementById('aff-name')?document.getElementById('aff-name').value:'';var email=document.getElementById('aff-email')?document.getElementById('aff-email').value:'';var phone=document.getElementById('aff-phone')?document.getElementById('aff-phone').value:'';if(!name||!email||!phone){showToast('Please fill in your name, email and WhatsApp number');return;}showToast('Application submitted! We will contact you within 24 hours.');['aff-name','aff-email','aff-phone'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}
-async function loadProducts(){var SAMPLE=[{id:'s1',title:'Sample Product A'},{id:'s2',title:'Sample Product B'},{id:'s3',title:'Sample Product C'}];try{var r=await fetch(apiUrl('/api/products'));if(!r.ok)throw new Error();var d=await r.json();products=d.products&&d.products.length>0?d.products:SAMPLE;}catch(e){products=SAMPLE;}document.querySelectorAll('select.rule-product,#default-product').forEach(function(s){var cur=s.value;var html='<option value="">Select product...</option>';products.forEach(function(p){html+='<option value="'+p.id+'">'+p.title+'</option>';});s.innerHTML=html;if(cur)s.value=cur;});}
+async function loadProducts(){
+  var SAMPLE=[{id:'s1',title:'Sample Product A'},{id:'s2',title:'Sample Product B'},{id:'s3',title:'Sample Product C'}];
+  try{
+    var r=await fetch(apiUrl('/api/products'));
+    if(!r.ok)throw new Error();
+    var d=await r.json();
+    products=(d.products&&d.products.length>0)?d.products:SAMPLE;
+  }catch(e){products=SAMPLE;}
+  updateProductSelects();
+  initDefaultProductSearch();
+}
+function updateProductSelects(){
+  document.querySelectorAll('select.rule-product').forEach(function(s){
+    var cur=s.value;
+    var html='<option value="">Select product...</option>';
+    products.forEach(function(p){html+='<option value="'+p.id+'">'+p.title+'</option>';});
+    s.innerHTML=html;
+    if(cur)s.value=cur;
+  });
+}
+function initDefaultProductSearch(){
+  var sel=document.getElementById('default-product');
+  if(!sel||document.getElementById('wrap-default-product'))return;
+  var html='<option value="">Select product...</option>';
+  products.forEach(function(p){html+='<option value="'+p.id+'">'+p.title+'</option>';});
+  sel.innerHTML=html;
+  sel.style.display='none';
+  var wrapper=document.createElement('div');wrapper.id='wrap-default-product';wrapper.style.cssText='position:relative;width:100%;display:block';
+  var inp=document.createElement('input');inp.type='text';inp.autocomplete='off';inp.placeholder='Search products...';
+  inp.style.cssText='width:100%;padding:9px 13px 9px 34px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;background:white;color:#1A202C;display:block;outline:none';
+  var icon=document.createElement('span');icon.style.cssText='position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;display:flex;align-items:center';
+  icon.innerHTML='<svg viewBox="0 0 24 24" width="14" height="14" style="stroke:#94A3B8;fill:none;stroke-width:2.5"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>';
+  var list=document.createElement('div');list.style.cssText='display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:180px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';
+  function buildDP(q){
+    list.innerHTML='';
+    var opts=Array.from(sel.options).filter(function(o){return!!o.value;});
+    var filtered=q?opts.filter(function(o){return o.text.toLowerCase().includes(q.toLowerCase());}):opts;
+    if(filtered.length===0){var em=document.createElement('div');em.textContent='No products found';em.style.cssText='padding:10px 12px;color:#94A3B8;font-size:12px;text-align:center';list.appendChild(em);return;}
+    filtered.forEach(function(opt){
+      var item=document.createElement('div');var isSel=opt.value===sel.value;
+      item.style.cssText='padding:9px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F8FAFC;color:#1A202C;'+(isSel?'background:#F0FFF8;':'');
+      var label=document.createElement('span');label.textContent=opt.text;item.appendChild(label);
+      if(isSel){var tick=document.createElement('span');tick.innerHTML='<svg viewBox="0 0 24 24" width="13" height="13" style="stroke:#1DC974;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>';item.appendChild(tick);}
+      item.onmouseover=function(){if(!isSel)this.style.background='#F8FAFC';};
+      item.onmouseout=function(){if(!isSel)this.style.background='';};
+      item.onmousedown=function(e){e.preventDefault();sel.value=opt.value;inp.value=opt.text;list.style.display='none';};
+      list.appendChild(item);
+    });
+  }
+  inp.onfocus=function(){buildDP(this.value);list.style.display='block';};
+  inp.oninput=function(){buildDP(this.value);list.style.display='block';};
+  inp.onblur=function(){setTimeout(function(){list.style.display='none';},200);};
+  document.addEventListener('click',function(e){if(!wrapper.contains(e.target))list.style.display='none';});
+  sel.parentNode.insertBefore(wrapper,sel);
+  wrapper.appendChild(icon);wrapper.appendChild(inp);wrapper.appendChild(list);wrapper.appendChild(sel);
+}
+function toggleDefaultOffer(e){
+  var btn=e.currentTarget;btn.classList.toggle('on');
+  var fields=document.getElementById('default-offer-fields');
+  if(fields)fields.style.display=btn.classList.contains('on')?'block':'none';
+  if(btn.classList.contains('on'))setTimeout(initDefaultProductSearch,50);
+}
+
 async function loadProductsWithVariants(){try{var r=await fetch(apiUrl('/api/products-with-variants'));if(r.ok){var d=await r.json();productsWithVariants=d.products||[];}}catch(e){}}
 async function loadStore(){try{var r=await fetch(apiUrl('/api/store'));if(r.ok){var d=await r.json();document.getElementById('store-domain').textContent=d.domain||'dev store';if(d.domain)setShop(d.domain);if(d.currency)saveCurrencySymbol(d.currency);}}catch(e){document.getElementById('store-domain').textContent='dev store';}}
 async function loadEvents(){try{var r=await fetch(apiUrl('/api/events'));if(r.ok){var d=await r.json();S.events=d.events||[];}}catch(e){}}
