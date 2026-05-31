@@ -168,29 +168,25 @@ tr:last-child td{border-bottom:none}
 <!-- ✅ App Bridge — Shopify CDN (satisfies embedded app checks) -->
 <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
 <script>
+// App Bridge — fully non-blocking. Session token is optional and never delays the app.
 try {
   var AppBridge = window['app-bridge'];
   var actions = AppBridge ? AppBridge.actions : null;
   var createApp = AppBridge ? AppBridge.default : null;
   var urlParams = new URLSearchParams(window.location.search);
   var host = urlParams.get('host');
-  var shop = urlParams.get('shop');
   if (host && AppBridge && createApp && actions) {
     var app = createApp({ apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host });
-    var SessionToken = actions.SessionToken;
-    async function getSessionToken() {
-      return new Promise(function(resolve) {
-        var req = SessionToken.create(app);
-        req.subscribe(SessionToken.Action.RESPOND, function(p){ resolve(p.sessionToken); });
-        req.dispatch(SessionToken.Action.REQUEST);
+    // Session token fetch runs in background only — NEVER blocks app load or API calls.
+    // The app uses the ?shop= param for all data, so it works regardless of token.
+    try {
+      var SessionToken = actions.SessionToken;
+      var req = SessionToken.create(app);
+      req.subscribe(SessionToken.Action.RESPOND, function(p){
+        try { fetch('/api/auth-check?shop=' + (urlParams.get('shop')||''), { headers: { 'Authorization': 'Bearer ' + p.sessionToken } }); } catch(e) {}
       });
-    }
-    window.addEventListener('DOMContentLoaded', async function() {
-      try {
-        var token = await getSessionToken();
-        fetch('/api/auth-check?shop=' + (shop||''), { headers: { 'Authorization': 'Bearer ' + token } });
-      } catch(e) {}
-    });
+      req.dispatch(SessionToken.Action.REQUEST);
+    } catch(e) { /* token optional */ }
   }
 } catch(e) { /* not in Shopify context */ }
 </script>
