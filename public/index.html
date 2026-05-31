@@ -707,11 +707,7 @@ function addProductSearch(n){
       return false;
     }
     function buildList(q){
-      // Render immediately from whatever products we have. No on-open refetch, no Loading gate.
-      // If products are still samples, kick off a background load but DON'T block the dropdown.
-      if(isSampleProducts()){
-        loadProducts().then(function(){syncSelFromProducts();renderList(inp.value);}).catch(function(){});
-      }
+      // Render immediately from the current products array. Never refetch on open.
       renderList(q);
     }
     function renderList(q){
@@ -799,7 +795,27 @@ async function loadProducts(){
   initDefaultProductSearch();
 }
 function updateProductSelects(){
+  // Update every product dropdown across all rules (not just the first/rule-product one)
+  var prefixes=['rp-','rp2-','rp3-','oos-product-','ds-product-','ls-product-','trigger-product-'];
+  document.querySelectorAll('.rule-card').forEach(function(card){
+    var n=card.id.split('-')[1];
+    prefixes.forEach(function(prefix){
+      var s=document.getElementById(prefix+n);
+      if(!s)return;
+      var cur=s.value;
+      var isNone=(prefix==='rp2-'||prefix==='rp3-');
+      var html=isNone?'<option value="">None</option>':'<option value="">Select product...</option>';
+      products.forEach(function(p){html+='<option value="'+p.id+'">'+p.title+'</option>';});
+      s.innerHTML=html;
+      if(cur)s.value=cur;
+      // re-sync the visible search box label for this select
+      var inp=document.getElementById('search-'+prefix+n);
+      if(inp&&cur){var o=Array.from(s.options).find(function(x){return x.value===cur;});if(o)inp.value=o.text;}
+    });
+  });
+  // also keep the legacy class-based update for any stray selects
   document.querySelectorAll('select.rule-product').forEach(function(s){
+    if(s.options.length>products.length)return;
     var cur=s.value;
     var html='<option value="">Select product...</option>';
     products.forEach(function(p){html+='<option value="'+p.id+'">'+p.title+'</option>';});
