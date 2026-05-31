@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UpsellBoost — Dynamic Upsell Engine</title>
+<!-- UB_VERSION: 2.5.1 -->
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -682,11 +683,13 @@ function addProductSearch(n){
     var list=document.createElement('div');
     list.style.cssText='display:none;position:absolute;top:calc(100% + 3px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;z-index:99999;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.1)';
     function syncSelFromProducts(){
-      var hasOpts=Array.from(sel.options).filter(function(o){return!!o.value;}).length>0;
-      if(!hasOpts&&products&&products.length>0){
+      // Always rebuild from real products array — fixes stale sample products in Shopify admin
+      if(products&&products.length>0){
+        var cur=sel.value;
         var isNone=prefix==='rp2-'||prefix==='rp3-';
         sel.innerHTML=isNone?'<option value="">None</option>':'<option value="">Select product...</option>';
         products.forEach(function(p){var o=document.createElement('option');o.value=p.id;o.text=p.title;sel.appendChild(o);});
+        if(cur)sel.value=cur;
       }
     }
     function buildList(q){
