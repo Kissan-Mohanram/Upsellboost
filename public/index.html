@@ -165,25 +165,8 @@ tr:last-child td{border-bottom:none}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
-<!-- ✅ App Bridge — Shopify CDN (satisfies embedded app checks) -->
-<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
-<script>
-// App Bridge — minimal init only. NO session token request (app uses ?shop= param for all data).
-try {
-  var AppBridge = window['app-bridge'];
-  var createApp = AppBridge ? AppBridge.default : null;
-  var urlParams = new URLSearchParams(window.location.search);
-  var host = urlParams.get('host');
-  var shop = urlParams.get('shop');
-  if (host && AppBridge && createApp) {
-    // Initialize App Bridge so Shopify recognizes this as an embedded app.
-    // Pass shop too — App Bridge Next requires it (fixes "missing required configuration fields: shop").
-    var cfg = { apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host, forceRedirect: false };
-    if (shop) cfg.shop = shop;
-    createApp(cfg);
-  }
-} catch(e) { /* not in Shopify context — app still works via ?shop= param */ }
-</script>
+<!-- App Bridge CDN removed for testing — app authenticates via ?shop= param -->
+<!-- TEST BUILD: no-appbridge -->
 
 </head>
 <body>
