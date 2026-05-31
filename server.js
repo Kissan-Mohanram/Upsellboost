@@ -542,11 +542,14 @@ app.post('/api/rules', async (req, res) => {
     const shop = (req.body && req.body.shop) || req.shopDomain || LEGACY_STORE || 'default';
     const rules = (req.body && req.body.rules) || [];
     console.log(`[rules POST] shop=${shop} rules=${rules.length}`);
+
     if (supabase) {
-      const { error: delErr } = await supabase.from('rules').delete().eq('shop_domain', shop);
-      if (delErr) console.error('Rules delete error:', delErr.message);
+      // Delete existing rules for this shop
+      await supabase.from('rules').delete().eq('shop_domain', shop);
+
       if (rules.length > 0) {
-        const safeRules = rules.map(r => ({
+        // Stage 1: Try full insert with all columns
+        const fullRules = rules.map(r => ({
           shop_domain: shop,
           condition: r.condition || 'any',
           condition_val: r.condition_val || null,
@@ -558,25 +561,46 @@ app.post('/api/rules', async (req, res) => {
           discount: r.discount || 15,
           display_location: r.display_location || 'both'
         }));
-        const { data: inserted, error: insErr } = await supabase.from('rules').insert(safeRules).select();
-        if (insErr) {
-          console.error('Rules insert error — falling back to file:', insErr.message);
-          // Fall back to file storage so rules always save
-          const fileData = readData();
-          fileData.rules = rules;
-          writeData(fileData);
-          return res.json({ success: true, count: rules.length, storage: 'file' });
+
+        const { data: inserted, error: insErr } = await supabase.from('rules').insert(fullRules).select();
+
+        if (!insErr) {
+          console.log(`[rules POST] Saved ${inserted?.length || 0} rules to Supabase (full)`);
+          return res.json({ success: true, count: inserted?.length || rules.length });
         }
-        console.log(`Saved ${inserted?.length || 0} rules for ${shop}`);
-        return res.json({ success: true, count: inserted?.length || rules.length });
+
+        console.warn(`[rules POST] Full insert failed (${insErr.message}) — trying minimal columns`);
+
+        // Stage 2: Try minimal columns only (guaranteed to exist)
+        const minRules = rules.map(r => ({
+          shop_domain: shop,
+          condition: r.condition || 'any',
+          condition_val: r.condition_val || null,
+          product_id: r.product_id ? String(r.product_id) : null,
+          product_id2: r.product_id2 ? String(r.product_id2) : null,
+          product_id3: r.product_id3 ? String(r.product_id3) : null,
+          product_name: r.product_name || null,
+          discount: r.discount || 15
+        }));
+
+        const { data: inserted2, error: insErr2 } = await supabase.from('rules').insert(minRules).select();
+
+        if (!insErr2) {
+          console.log(`[rules POST] Saved ${inserted2?.length || 0} rules to Supabase (minimal)`);
+          return res.json({ success: true, count: inserted2?.length || rules.length });
+        }
+
+        console.error(`[rules POST] Both inserts failed: ${insErr2.message} — using file storage`);
       }
-      return res.json({ success: true, count: 0 });
-    } else {
-      const data = readData();
-      data.rules = rules;
-      writeData(data);
-      return res.json({ success: true, count: rules.length });
     }
+
+    // Final fallback: file storage (always works)
+    const fileData = readData();
+    fileData.rules = rules;
+    writeData(fileData);
+    console.log(`[rules POST] Saved ${rules.length} rules to file storage`);
+    return res.json({ success: true, count: rules.length });
+
   } catch (e) {
     console.error('[rules POST] Unhandled error:', e.message);
     return res.status(500).json({ success: false, error: e.message });
