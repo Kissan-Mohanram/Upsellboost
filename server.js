@@ -89,11 +89,20 @@ async function shopifyFetch(shop, endpoint, options = {}) {
   const token = await getShopToken(shop);
   const store = shop || LEGACY_STORE;
   const url = `https://${store}/admin/api/${API_VERSION}${endpoint}`;
-  const res = await fetch(url, {
-    headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
-    ...options
-  });
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5-second timeout
+  try {
+    const res = await fetch(url, {
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      ...options
+    });
+    clearTimeout(timeout);
+    return res.json();
+  } catch (e) {
+    clearTimeout(timeout);
+    throw e;
+  }
 }
 
 async function shopifyGraphQL(shop, query) {
@@ -551,8 +560,12 @@ app.post('/api/rules', async (req, res) => {
         }));
         const { data: inserted, error: insErr } = await supabase.from('rules').insert(safeRules).select();
         if (insErr) {
-          console.error('Rules insert error:', insErr.message);
-          return res.json({ success: false, error: insErr.message });
+          console.error('Rules insert error — falling back to file:', insErr.message);
+          // Fall back to file storage so rules always save
+          const fileData = readData();
+          fileData.rules = rules;
+          writeData(fileData);
+          return res.json({ success: true, count: rules.length, storage: 'file' });
         }
         console.log(`Saved ${inserted?.length || 0} rules for ${shop}`);
         return res.json({ success: true, count: inserted?.length || rules.length });
@@ -573,10 +586,15 @@ app.post('/api/rules', async (req, res) => {
 app.get('/api/rules', async (req, res) => {
   const shop = req.shopDomain || req.query.shop || LEGACY_STORE || 'default';
   if (supabase) {
-    const { data } = await supabase.from('rules').select('*').eq('shop_domain', shop).order('id');
-    if (data && data.length > 0) return res.json({ rules: data });
-    const { data: d2 } = await supabase.from('rules').select('*').eq('shop_domain', 'default').order('id');
-    return res.json({ rules: d2 || [] });
+    try {
+      const { data } = await supabase.from('rules').select('*').eq('shop_domain', shop).order('id');
+      if (data && data.length > 0) return res.json({ rules: data });
+      const { data: d2 } = await supabase.from('rules').select('*').eq('shop_domain', 'default').order('id');
+      if (d2 && d2.length > 0) return res.json({ rules: d2 });
+    } catch(e) { console.error('GET rules Supabase error:', e.message); }
+    // Fall back to file
+    const fileData = readData();
+    return res.json({ rules: fileData.rules || [] });
   }
   res.json({ rules: readData().rules || [] });
 });
