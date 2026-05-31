@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- App Bridge MUST be first script in head (Shopify requirement). Auto-initializes, non-blocking,
+     attaches session tokens to fetch() automatically for App Store compliance. -->
+<meta name="shopify-api-key" content="2979783536b8eefdbaa10b30d4c468e8" />
+<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UpsellBoost — Dynamic Upsell Engine</title>
 <!-- UB_VERSION: 2.5.1 -->
@@ -165,8 +169,6 @@ tr:last-child td{border-bottom:none}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 </style>
-<!-- App Bridge CDN removed for testing — app authenticates via ?shop= param -->
-<!-- TEST BUILD: no-appbridge -->
 
 </head>
 <body>
