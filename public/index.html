@@ -707,7 +707,11 @@ function addProductSearch(n){
       return false;
     }
     function buildList(q){
-      if(syncAndRefresh())return;
+      // Render immediately from whatever products we have. No on-open refetch, no Loading gate.
+      // If products are still samples, kick off a background load but DON'T block the dropdown.
+      if(isSampleProducts()){
+        loadProducts().then(function(){syncSelFromProducts();renderList(inp.value);}).catch(function(){});
+      }
       renderList(q);
     }
     function renderList(q){
