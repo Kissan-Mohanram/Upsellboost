@@ -168,25 +168,16 @@ tr:last-child td{border-bottom:none}
 <!-- ✅ App Bridge — Shopify CDN (satisfies embedded app checks) -->
 <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
 <script>
-// App Bridge — fully non-blocking. Session token is optional and never delays the app.
+// App Bridge — minimal init only. NO session token request (app uses ?shop= param for all data).
 try {
   var AppBridge = window['app-bridge'];
-  var actions = AppBridge ? AppBridge.actions : null;
   var createApp = AppBridge ? AppBridge.default : null;
   var urlParams = new URLSearchParams(window.location.search);
   var host = urlParams.get('host');
-  if (host && AppBridge && createApp && actions) {
-    var app = createApp({ apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host });
-    // Session token fetch runs in background only — NEVER blocks app load or API calls.
-    // The app uses the ?shop= param for all data, so it works regardless of token.
-    try {
-      var SessionToken = actions.SessionToken;
-      var req = SessionToken.create(app);
-      req.subscribe(SessionToken.Action.RESPOND, function(p){
-        try { fetch('/api/auth-check?shop=' + (urlParams.get('shop')||''), { headers: { 'Authorization': 'Bearer ' + p.sessionToken } }); } catch(e) {}
-      });
-      req.dispatch(SessionToken.Action.REQUEST);
-    } catch(e) { /* token optional */ }
+  if (host && AppBridge && createApp) {
+    // Initialize App Bridge so Shopify recognizes this as an embedded app.
+    // We do NOT request a session token — it times out in this setup and isn't needed.
+    createApp({ apiKey: '2979783536b8eefdbaa10b30d4c468e8', host: host });
   }
 } catch(e) { /* not in Shopify context */ }
 </script>
@@ -701,7 +692,10 @@ function addProductSearch(n){
         list.style.display='block';
         loadProducts().then(function(){
           syncSelFromProducts();
-          buildList(inp.value);
+          // rebuild list directly without re-triggering refresh
+          renderList(inp.value);
+        }).catch(function(){
+          renderList(inp.value);
         });
         return true;
       }
@@ -709,6 +703,9 @@ function addProductSearch(n){
     }
     function buildList(q){
       if(syncAndRefresh())return;
+      renderList(q);
+    }
+    function renderList(q){
       syncSelFromProducts();
       list.innerHTML='';
       var opts=Array.from(sel.options).filter(function(o){return!!o.value;});
@@ -844,7 +841,7 @@ async function loadSettings(){
 async function loadSettings(){try{var r=await fetch(apiUrl('/api/settings'));if(r.ok){var d=await r.json();var s=d.settings||{};S.settings=s;var tt=document.getElementById('timer-toggle');var tm=document.getElementById('timer-minutes');if(tt&&s.timer_enabled)tt.classList.add('on');if(tm&&s.timer_minutes)tm.value=s.timer_minutes;}}catch(e){}}
 async function loadRules(){try{var r=await fetch(apiUrl('/api/rules'));if(r.ok){var d=await r.json();S.rules=d.rules||[];document.getElementById('offer-count').textContent=S.rules.length;var rc=document.getElementById('rules-container');if(rc)rc.innerHTML='';ruleCount=0;S.rules.forEach(function(rule){addRule(true);var n=ruleCount;setTimeout(function(){var po='';products.forEach(function(p){po+='<option value="'+p.id+'">'+p.title+'</option>';});var pBase='<option value="">Select product...</option>'+po;var pNone='<option value="">None</option>'+po;var dropdownMap={'rp-':rule.product_id||'','rp2-':rule.product_id2||'','rp3-':rule.product_id3||'','trigger-product-':(rule.condition==='contains_product')?(rule.condition_val||''):'','oos-product-':(rule.condition==='out_of_stock')?(rule.condition_val||''):'','ds-product-':(rule.condition==='deadstock')?((rule.condition_val||'').split(':')[0]||''):'','ls-product-':(rule.condition==='low_stock')?((rule.condition_val||'').split(':')[0]||''):''};Object.keys(dropdownMap).forEach(function(prefix){var el=document.getElementById(prefix+n);if(!el)return;el.innerHTML=(prefix==='rp2-'||prefix==='rp3-')?pNone:pBase;if(dropdownMap[prefix])el.value=dropdownMap[prefix];});var cm={'any':'any','contains_product':'product','product_category':'category','order_value':'order_value','cod':'cod','low_stock':'low_stock','out_of_stock':'out_of_stock','deadstock':'deadstock'};var cs=document.getElementById('rc-'+n);if(cs){cs.value=cm[rule.condition]||'any';onConditionChange(n);}if(rule.condition==='order_value'){var rv=document.getElementById('rv-'+n);if(rv&&rule.condition_val)rv.value=rule.condition_val;}else if(rule.condition==='product_category'){var cat=document.getElementById('cat-'+n);if(cat&&rule.condition_val)cat.value=rule.condition_val;}else if(rule.condition==='low_stock'&&rule.condition_val){var parts=rule.condition_val.split(':');var lsp=document.getElementById('ls-product-'+n);if(lsp&&parts[0]){lsp.value=parts[0];onLowStockProductChange(n);setTimeout(function(){var lsv=document.getElementById('ls-variant-'+n);if(lsv&&parts[1])lsv.value=parts[1];},300);}var lst=document.getElementById('ls-threshold-'+n);if(lst&&parts[2])lst.value=parts[2];}else if(rule.condition==='deadstock'){var parts2=(rule.condition_val||'').split(':');var dsp2=document.getElementById('ds-product-'+n);if(dsp2&&parts2[0])dsp2.value=parts2[0];var dsd2=document.getElementById('ds-days-'+n);if(dsd2&&parts2[1])dsd2.value=parts2[1];}var p1=document.getElementById('rp-'+n);if(p1)p1.value=rule.product_id||'';var p2=document.getElementById('rp2-'+n);if(p2&&rule.product_id2)p2.value=rule.product_id2;var p3=document.getElementById('rp3-'+n);if(p3&&rule.product_id3)p3.value=rule.product_id3;var di=document.getElementById('rd-'+n);if(di)di.value=rule.discount||15;var dl=document.getElementById('rl-'+n);if(dl&&rule.display_location)dl.value=rule.display_location;updateRuleSummary(n);addProductSearch(n);syncSearchLabels(n);var card=document.getElementById('rule-'+n);if(card)card.classList.remove('rule-expanded');},50);});}}catch(e){console.error('loadRules error:',e);}}
 async function migrateDefaultRules(){var shop=getShop();if(!shop||shop==='default')return;try{var r=await fetch('/api/rules?shop=default');if(!r.ok)return;var d=await r.json();var defaultRules=d.rules||[];if(defaultRules.length===0)return;var r2=await fetch(apiUrl('/api/rules'));if(!r2.ok)return;var d2=await r2.json();if((d2.rules||[]).length>0)return;await fetch(apiUrl('/api/rules'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({rules:defaultRules,shop:shop})});console.log('Migrated',defaultRules.length,'rules from default to',shop);}catch(e){}}
-window.addEventListener('load',async function(){
+function initApp(){
   setGreeting();
   buildChart();
 
@@ -854,21 +851,28 @@ window.addEventListener('load',async function(){
   if(_s){setShop(_s);document.getElementById('store-domain').textContent=_s;}
 
   // Phase 1 — run ALL independent calls in parallel (was sequential before = slow)
-  await Promise.all([
+  Promise.all([
     loadStore(),
     loadProducts(),
     loadEvents(),
     loadSettings()
-  ]);
-
-  // Phase 2 — rules needs products loaded first; variants can load in background
-  loadProductsWithVariants(); // non-blocking, only needed for low-stock variant selector
-  await migrateDefaultRules();
-  await loadRules();
-
-  renderDashboard();
-  if(!localStorage.getItem('ub2_tour_never'))setTimeout(function(){startTour();},800);
-});
+  ]).then(function(){
+    // Phase 2 — rules needs products loaded first; variants can load in background
+    loadProductsWithVariants(); // non-blocking, only needed for low-stock variant selector
+    return migrateDefaultRules();
+  }).then(function(){
+    return loadRules();
+  }).then(function(){
+    renderDashboard();
+    if(!localStorage.getItem('ub2_tour_never'))setTimeout(function(){startTour();},800);
+  });
+}
+// Fire as soon as HTML is parsed — does NOT wait for App Bridge CDN or other scripts
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',initApp);
+}else{
+  initApp();
+}
 </script>
 
 <footer style="margin-left:var(--sidebar);background:var(--navy);border-top:1px solid rgba(61,255,160,0.08);padding:32px 40px;">
