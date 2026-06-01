@@ -462,21 +462,24 @@ app.get('/billing/callback', async (req, res) => {
   const shopDomain = shop || LEGACY_STORE;
   if (!charge_id) return res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}/pricing?cancelled=1`);
   try {
-    const query = `{ appSubscription(id: "gid://shopify/AppSubscription/${charge_id}") { status } }`;
+    const query = `{ appSubscription(id: "gid://shopify/AppSubscription/${charge_id}") { status name } }`;
     const data = await shopifyGraphQL(shopDomain, query);
+    console.log(`[billing-callback] shop=${shopDomain} charge_id=${charge_id} response=`, JSON.stringify(data));
     const status = data?.data?.appSubscription?.status;
-    if (status === 'ACTIVE' || status === 'PENDING') {
+    // Accept any status indicating the merchant approved (ACTIVE, PENDING, ACCEPTED, FROZEN)
+    if (status && status !== 'DECLINED' && status !== 'EXPIRED' && status !== 'CANCELLED') {
       if (supabase) {
-        await supabase.from('shops').upsert({ shop_domain: shopDomain, plan, subscription_id: charge_id }, { onConflict: 'shop_domain' });
+        await supabase.from('shops').update({ plan, subscription_id: charge_id }).eq('shop_domain', shopDomain);
       } else {
         const fileData = readData();
         fileData.shops = fileData.shops || {};
         fileData.shops[shopDomain] = { ...(fileData.shops[shopDomain] || {}), plan, subscription_id: charge_id };
         writeData(fileData);
       }
-      console.log(`✓ Plan activated: ${shopDomain} → ${plan}`);
+      console.log(`✓ Plan activated: ${shopDomain} → ${plan} (status: ${status})`);
       res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}?plan_activated=1`);
     } else {
+      console.log(`[billing-callback] Charge not approved: status=${status}`);
       res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}/pricing?failed=1`);
     }
   } catch (e) {
