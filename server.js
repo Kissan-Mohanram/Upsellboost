@@ -937,6 +937,13 @@ app.get('/health', async (req, res) => {
   res.json({ status: 'ok', version: '3.1.0', oauth: !!CLIENT_ID, billing: !!CLIENT_ID, session_tokens: true, app_bridge: true, hmac_verification: !!CLIENT_SECRET, gdpr_webhooks: true, shops: shopsCount, rules: rulesCount, events: eventsCount, supabase: !!supabase, timestamp: new Date().toISOString() });
 });
 
+// ── SPA catch-all: serve index.html for any unmatched route ──
+// Shopify admin may load the app at paths like /pricing, /dashboard etc.
+// Since UpsellBoost is a single-page app, all routes serve the same HTML.
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // ── START ──
 const PORT = process.env.PORT || 3000;
 initSupabase().then(() => {
