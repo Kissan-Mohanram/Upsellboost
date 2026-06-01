@@ -96,17 +96,81 @@ async function initSupabase() {
 }
 
 // ── SHOP HELPERS ──
+// ── Token refresh for expiring offline tokens (required since April 2026) ──
+async function refreshShopToken(shop) {
+  if (!shop || !CLIENT_ID || !CLIENT_SECRET) return null;
+  let refresh_token;
+  if (supabase) {
+    const { data } = await supabase.from('shops').select('refresh_token').eq('shop_domain', shop).single();
+    refresh_token = data?.refresh_token;
+  } else {
+    const fileData = readData();
+    refresh_token = fileData.shops?.[shop]?.refresh_token;
+  }
+  if (!refresh_token) { console.log(`[refresh] No refresh_token for ${shop}`); return null; }
+  try {
+    const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, grant_type: 'refresh_token', refresh_token })
+    });
+    const raw = await res.text();
+    const tokenData = JSON.parse(raw);
+    if (!tokenData.access_token) { console.error('[refresh] No access_token:', raw.slice(0, 200)); return null; }
+    const token_expires_at = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null;
+    // Save refreshed token (and possibly new refresh_token)
+    if (supabase) {
+      const updateObj = { access_token: tokenData.access_token, token_expires_at };
+      if (tokenData.refresh_token) updateObj.refresh_token = tokenData.refresh_token;
+      await supabase.from('shops').update(updateObj).eq('shop_domain', shop);
+    } else {
+      const fileData = readData();
+      fileData.shops = fileData.shops || {};
+      fileData.shops[shop] = { ...(fileData.shops[shop] || {}), access_token: tokenData.access_token, token_expires_at };
+      if (tokenData.refresh_token) fileData.shops[shop].refresh_token = tokenData.refresh_token;
+      writeData(fileData);
+    }
+    console.log(`[refresh] ✓ Token refreshed for ${shop}`);
+    return tokenData.access_token;
+  } catch (e) {
+    console.error('[refresh] Error refreshing token for', shop, e.message);
+    return null;
+  }
+}
+
 async function getShopToken(shop) {
   const shopDomain = shop || LEGACY_STORE;
   if (supabase && shopDomain) {
     try {
-      const { data } = await supabase.from('shops').select('access_token').eq('shop_domain', shopDomain).single();
-      if (data?.access_token) return data.access_token;
+      const { data } = await supabase.from('shops').select('access_token,refresh_token,token_expires_at').eq('shop_domain', shopDomain).single();
+      if (data?.access_token) {
+        // Check if token is expired or about to expire (5 min buffer)
+        if (data.token_expires_at) {
+          const expiresAt = new Date(data.token_expires_at).getTime();
+          const now = Date.now();
+          if (now > expiresAt - 5 * 60 * 1000) {
+            // Token expired or expiring soon — refresh it
+            const newToken = await refreshShopToken(shopDomain);
+            if (newToken) return newToken;
+            // If refresh fails, try the existing token anyway (might still work briefly)
+          }
+        }
+        return data.access_token;
+      }
     } catch(e) {}
   } else {
     const fileData = readData();
-    const token = fileData.shops?.[shopDomain]?.access_token;
-    if (token) return token;
+    const shopData = fileData.shops?.[shopDomain];
+    if (shopData?.access_token) {
+      if (shopData.token_expires_at) {
+        const expiresAt = new Date(shopData.token_expires_at).getTime();
+        if (Date.now() > expiresAt - 5 * 60 * 1000) {
+          const newToken = await refreshShopToken(shopDomain);
+          if (newToken) return newToken;
+        }
+      }
+      return shopData.access_token;
+    }
   }
   return LEGACY_TOKEN;
 }
@@ -233,27 +297,33 @@ app.get('/auth/callback', async (req, res) => {
     const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, code })
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, code, expiring: 1 })
     });
-    // Read as text first so a non-JSON (HTML error) response doesn't crash JSON.parse
     const raw = await tokenRes.text();
-    let access_token;
+    let tokenData;
     try {
-      access_token = JSON.parse(raw).access_token;
+      tokenData = JSON.parse(raw);
     } catch (parseErr) {
       console.error(`[oauth-callback] Non-JSON token response (status ${tokenRes.status}):`, raw.slice(0, 200));
       return res.status(502).send('OAuth token exchange failed. Please reinstall the app from the Shopify admin.');
     }
+    const { access_token, refresh_token, expires_in } = tokenData;
     if (!access_token) {
       console.error('[oauth-callback] No access_token in response:', raw.slice(0, 200));
       return res.status(400).send('Failed to get access token. Please try reinstalling.');
     }
+    // Calculate expiry timestamp (expires_in is in seconds, typically 3600 = 60 min)
+    const token_expires_at = expires_in ? new Date(Date.now() + expires_in * 1000).toISOString() : null;
+    console.log(`[oauth-callback] Got token for ${shop} (expiring=${!!expires_in}, refresh=${!!refresh_token})`);
     if (supabase) {
-      await supabase.from('shops').upsert({ shop_domain: shop, access_token, plan: 'free', installed_at: new Date().toISOString() }, { onConflict: 'shop_domain' });
+      await supabase.from('shops').upsert({
+        shop_domain: shop, access_token, refresh_token: refresh_token || null,
+        token_expires_at, plan: 'free', installed_at: new Date().toISOString()
+      }, { onConflict: 'shop_domain' });
     } else {
       const data = readData();
       data.shops = data.shops || {};
-      data.shops[shop] = { access_token, plan: 'free' };
+      data.shops[shop] = { access_token, refresh_token, token_expires_at, plan: 'free' };
       writeData(data);
     }
     console.log(`✓ Shop installed: ${shop}`);
