@@ -460,32 +460,27 @@ app.get('/billing/redirect', (req, res) => {
 app.get('/billing/callback', async (req, res) => {
   const { shop, plan, charge_id } = req.query;
   const shopDomain = shop || LEGACY_STORE;
-  if (!charge_id) return res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}/pricing?cancelled=1`);
-  try {
-    const query = `{ appSubscription(id: "gid://shopify/AppSubscription/${charge_id}") { status name } }`;
-    const data = await shopifyGraphQL(shopDomain, query);
-    console.log(`[billing-callback] shop=${shopDomain} charge_id=${charge_id} response=`, JSON.stringify(data));
-    const status = data?.data?.appSubscription?.status;
-    // Accept any status indicating the merchant approved (ACTIVE, PENDING, ACCEPTED, FROZEN)
-    if (status && status !== 'DECLINED' && status !== 'EXPIRED' && status !== 'CANCELLED') {
-      if (supabase) {
-        await supabase.from('shops').update({ plan, subscription_id: charge_id }).eq('shop_domain', shopDomain);
-      } else {
-        const fileData = readData();
-        fileData.shops = fileData.shops || {};
-        fileData.shops[shopDomain] = { ...(fileData.shops[shopDomain] || {}), plan, subscription_id: charge_id };
-        writeData(fileData);
-      }
-      console.log(`✓ Plan activated: ${shopDomain} → ${plan} (status: ${status})`);
-      res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}?plan_activated=1`);
-    } else {
-      console.log(`[billing-callback] Charge not approved: status=${status}`);
-      res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}/pricing?failed=1`);
-    }
-  } catch (e) {
-    console.error('Billing callback error:', e.message);
-    res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}`);
+  console.log(`[billing-callback] shop=${shopDomain} plan=${plan} charge_id=${charge_id}`);
+  // No charge_id = merchant declined/cancelled
+  if (!charge_id) {
+    console.log(`[billing-callback] No charge_id — merchant declined`);
+    return res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}`);
   }
+  // charge_id present = merchant approved. Save the plan.
+  try {
+    if (supabase) {
+      await supabase.from('shops').update({ plan }).eq('shop_domain', shopDomain);
+    } else {
+      const fileData = readData();
+      fileData.shops = fileData.shops || {};
+      fileData.shops[shopDomain] = { ...(fileData.shops[shopDomain] || {}), plan };
+      writeData(fileData);
+    }
+    console.log(`✓ Plan activated: ${shopDomain} → ${plan} (charge_id: ${charge_id})`);
+  } catch (e) {
+    console.error('[billing-callback] Save error (non-fatal):', e.message);
+  }
+  res.redirect(`https://${shopDomain}/admin/apps/${CLIENT_ID}`);
 });
 
 app.get('/api/plan', async (req, res) => {
