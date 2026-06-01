@@ -14,26 +14,26 @@ const app = express();
 
 app.use(express.json());
 
-// ── OAuth gate: force install flow if a shop opens the app without a saved token ──
-// Without this, a newly-installing store (e.g. an App Store reviewer's store) loads the
-// app HTML but has no access token in Supabase, so Shopify API calls fail with the
-// legacy/dev token ("Invalid API key or access token"). Redirecting to /auth completes
-// OAuth and saves THAT store's token.
+// ── OAuth gate: force install flow ONLY for new stores with no token ──
+// Safe by design: never blocks the legacy/dev store, never loops, and fails OPEN
+// (serves the app) if anything goes wrong — so it can never crash the app for users.
 app.get('/', async (req, res, next) => {
   const shop = req.query.shop;
-  // No shop param = direct/marketing visit, just serve the app
-  if (!shop) return next();
+  if (!shop) return next();                    // no shop param → just serve app
+  if (shop === LEGACY_STORE) return next();    // our own dev store uses LEGACY_TOKEN → never gate it
+  if (!CLIENT_ID || !CLIENT_SECRET) return next(); // OAuth not configured → don't trap anyone, serve app
+  if (req.query.no_oauth === '1') return next();   // manual escape hatch to bypass the gate
   try {
-    const token = await getShopTokenRaw(shop); // looks up ONLY this shop, no legacy fallback
+    const token = await getShopTokenRaw(shop);
     if (!token) {
-      // This shop hasn't completed OAuth — send them through the install flow
       console.log(`[oauth-gate] No token for ${shop} — redirecting to /auth`);
       return res.redirect(`/auth?shop=${encodeURIComponent(shop)}`);
     }
   } catch (e) {
-    console.error('[oauth-gate] error:', e.message);
+    console.error('[oauth-gate] error (serving app anyway):', e.message);
+    return next(); // fail OPEN — never block the app on an error
   }
-  next(); // shop has a token — serve the app normally
+  next();
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -225,14 +225,29 @@ app.get('/auth', (req, res) => {
 app.get('/auth/callback', async (req, res) => {
   const { shop, code, state } = req.query;
   if (!shop || !code) return res.status(400).send('Missing shop or code');
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error('[oauth-callback] CLIENT_ID or CLIENT_SECRET not set in Railway env vars');
+    return res.status(500).send('App not configured: missing client credentials. Contact support.');
+  }
   try {
     const tokenRes = await fetch(`https://${shop}/admin/oauth/access_token`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, code })
     });
-    const { access_token } = await tokenRes.json();
-    if (!access_token) return res.status(400).send('Failed to get access token');
+    // Read as text first so a non-JSON (HTML error) response doesn't crash JSON.parse
+    const raw = await tokenRes.text();
+    let access_token;
+    try {
+      access_token = JSON.parse(raw).access_token;
+    } catch (parseErr) {
+      console.error(`[oauth-callback] Non-JSON token response (status ${tokenRes.status}):`, raw.slice(0, 200));
+      return res.status(502).send('OAuth token exchange failed. Please reinstall the app from the Shopify admin.');
+    }
+    if (!access_token) {
+      console.error('[oauth-callback] No access_token in response:', raw.slice(0, 200));
+      return res.status(400).send('Failed to get access token. Please try reinstalling.');
+    }
     if (supabase) {
       await supabase.from('shops').upsert({ shop_domain: shop, access_token, plan: 'free', installed_at: new Date().toISOString() }, { onConflict: 'shop_domain' });
     } else {
@@ -242,7 +257,7 @@ app.get('/auth/callback', async (req, res) => {
       writeData(data);
     }
     console.log(`✓ Shop installed: ${shop}`);
-    await registerWebhooks(shop, access_token);
+    try { await registerWebhooks(shop, access_token); } catch(whErr){ console.error('[oauth-callback] webhook register failed (non-fatal):', whErr.message); }
     res.redirect(`https://${shop}/admin/apps/${CLIENT_ID}`);
   } catch (e) {
     console.error('OAuth callback error:', e.message);
