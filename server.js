@@ -320,8 +320,8 @@ app.get('/billing/create', async (req, res) => {
   // hasn't installed via OAuth, send them through it first.
   const oauthToken = await getShopTokenRaw(shopDomain);
   if (!oauthToken) {
-    console.log(`[billing] No OAuth token for ${shopDomain} — redirecting to install first`);
-    return res.redirect(`/auth?shop=${encodeURIComponent(shopDomain)}`);
+    console.log(`[billing] No OAuth token for ${shopDomain} — needs install first`);
+    return res.status(401).json({ error: 'App not installed. Please reinstall from Shopify admin.', needsInstall: true });
   }
   try {
     const mutation = `
@@ -351,19 +351,19 @@ app.get('/billing/create', async (req, res) => {
     if (data?.errors) {
       console.error('Billing GraphQL errors:', JSON.stringify(data.errors));
       const errMsg = data.errors.map(e => e.message || JSON.stringify(e)).join('; ');
-      return res.status(400).send('Billing error: ' + errMsg);
+      return res.status(400).json({ error: 'Billing error: ' + errMsg });
     }
     if (result?.userErrors?.length > 0) {
       console.error('Billing userErrors:', JSON.stringify(result.userErrors));
-      return res.status(400).send('Billing error: ' + result.userErrors[0].message);
+      return res.status(400).json({ error: result.userErrors[0].message });
     }
-    if (!result?.confirmationUrl) return res.status(500).send('No confirmation URL returned from Shopify');
+    if (!result?.confirmationUrl) return res.status(500).json({ error: 'No confirmation URL returned from Shopify' });
     console.log(`Billing created for ${shopDomain} plan=${plan} test=${useTest}`);
-    // IMPORTANT: redirect at TOP LEVEL out of the iframe (handled by /billing/redirect page)
-    res.redirect(`/billing/redirect?url=${encodeURIComponent(result.confirmationUrl)}`);
+    // Return the URL as JSON — the frontend handles the top-level redirect via App Bridge
+    res.json({ confirmationUrl: result.confirmationUrl });
   } catch (e) {
     console.error('Billing create error:', e.message);
-    res.status(500).send('Billing error: ' + e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
