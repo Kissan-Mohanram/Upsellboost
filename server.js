@@ -350,8 +350,8 @@ app.get('/billing/create', async (req, res) => {
     const result = data?.data?.appSubscriptionCreate;
     if (data?.errors) {
       console.error('Billing GraphQL errors:', JSON.stringify(data.errors));
-      const errMsg = data.errors.map(e => e.message || JSON.stringify(e)).join('; ');
-      return res.status(400).json({ error: 'Billing error: ' + errMsg });
+      const errMsg = Array.isArray(data.errors) ? data.errors.map(e => e.message || JSON.stringify(e)).join('; ') : (typeof data.errors === 'string' ? data.errors : JSON.stringify(data.errors));
+      return res.status(400).json({ error: errMsg });
     }
     if (result?.userErrors?.length > 0) {
       console.error('Billing userErrors:', JSON.stringify(result.userErrors));
