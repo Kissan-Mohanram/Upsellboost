@@ -13,6 +13,29 @@ const jwt = require('jsonwebtoken'); // ← NEW
 const app = express();
 
 app.use(express.json());
+
+// ── OAuth gate: force install flow if a shop opens the app without a saved token ──
+// Without this, a newly-installing store (e.g. an App Store reviewer's store) loads the
+// app HTML but has no access token in Supabase, so Shopify API calls fail with the
+// legacy/dev token ("Invalid API key or access token"). Redirecting to /auth completes
+// OAuth and saves THAT store's token.
+app.get('/', async (req, res, next) => {
+  const shop = req.query.shop;
+  // No shop param = direct/marketing visit, just serve the app
+  if (!shop) return next();
+  try {
+    const token = await getShopTokenRaw(shop); // looks up ONLY this shop, no legacy fallback
+    if (!token) {
+      // This shop hasn't completed OAuth — send them through the install flow
+      console.log(`[oauth-gate] No token for ${shop} — redirecting to /auth`);
+      return res.redirect(`/auth?shop=${encodeURIComponent(shop)}`);
+    }
+  } catch (e) {
+    console.error('[oauth-gate] error:', e.message);
+  }
+  next(); // shop has a token — serve the app normally
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── CORS + CSP ──
@@ -88,6 +111,21 @@ async function getShopToken(shop) {
   return LEGACY_TOKEN;
 }
 
+// Like getShopToken but returns null when the shop has no saved token (NO legacy fallback).
+// Used by the OAuth gate to detect stores that haven't completed install yet.
+async function getShopTokenRaw(shop) {
+  if (!shop) return null;
+  if (supabase) {
+    try {
+      const { data } = await supabase.from('shops').select('access_token').eq('shop_domain', shop).single();
+      return data?.access_token || null;
+    } catch(e) { return null; }
+  } else {
+    const fileData = readData();
+    return fileData.shops?.[shop]?.access_token || null;
+  }
+}
+
 async function getShopPlan(shop) {
   const shopDomain = shop || LEGACY_STORE;
   if (supabase) {
@@ -151,8 +189,8 @@ function verifySessionToken(req, res, next) {
     req.shopDomain = decoded.dest?.replace('https://', '');
     next();
   } catch (e) {
-    // Invalid token — log but don't block (legacy installs still work)
-    console.warn('Session token verification failed:', e.message);
+    // Token couldn't be verified — proceed using the ?shop= param instead (non-blocking).
+    // Common during install before OAuth completes; not an error that should block the app.
     next();
   }
 }
@@ -248,9 +286,9 @@ async function registerWebhooks(shop, token) {
 // ════════════════════════════════════════════════════
 
 const PLANS = {
-  basic:      { name: 'UpsellBoost Basic',     amount: '799.00',  currency: 'INR', trialDays: 7, orderLimit: 500,   rulesLimit: 5   },
-  pro:        { name: 'UpsellBoost Pro',        amount: '1999.00', currency: 'INR', trialDays: 7, orderLimit: 2000,  rulesLimit: 999 },
-  enterprise: { name: 'UpsellBoost Enterprise', amount: '4999.00', currency: 'INR', trialDays: 7, orderLimit: 99999, rulesLimit: 999 }
+  basic:      { name: 'UpsellBoost Basic',     amount: '9.99',  currency: 'USD', trialDays: 7, orderLimit: 500,   rulesLimit: 5   },
+  pro:        { name: 'UpsellBoost Pro',        amount: '24.99', currency: 'USD', trialDays: 7, orderLimit: 2000,  rulesLimit: 999 },
+  enterprise: { name: 'UpsellBoost Enterprise', amount: '59.99', currency: 'USD', trialDays: 7, orderLimit: 99999, rulesLimit: 999 }
 };
 
 app.get('/billing/create', async (req, res) => {
@@ -259,6 +297,9 @@ app.get('/billing/create', async (req, res) => {
   const planConfig = PLANS[plan];
   if (!planConfig) return res.status(400).json({ error: 'Invalid plan: ' + plan });
   if (!shopDomain) return res.status(400).json({ error: 'Missing shop parameter' });
+  // Use test charges unless explicitly enabled for live billing.
+  // Reviewers must see TEST charges so they can approve without being billed real money.
+  const useTest = process.env.BILLING_LIVE === 'true' ? false : true;
   try {
     const mutation = `
       mutation {
@@ -266,7 +307,7 @@ app.get('/billing/create', async (req, res) => {
           name: "${planConfig.name}"
           returnUrl: "${APP_URL}/billing/callback?shop=${shopDomain}&plan=${plan}"
           trialDays: ${planConfig.trialDays}
-          test: ${process.env.NODE_ENV !== 'production'}
+          test: ${useTest}
           lineItems: [{
             plan: {
               appRecurringPricingDetails: {
@@ -284,14 +325,42 @@ app.get('/billing/create', async (req, res) => {
     `;
     const data = await shopifyGraphQL(shopDomain, mutation);
     const result = data?.data?.appSubscriptionCreate;
-    if (result?.userErrors?.length > 0) return res.status(400).json({ error: result.userErrors[0].message });
-    if (!result?.confirmationUrl) return res.status(500).json({ error: 'No confirmation URL returned' });
-    console.log(`Billing created for ${shopDomain} plan=${plan}`);
-    res.redirect(result.confirmationUrl);
+    if (data?.errors) {
+      console.error('Billing GraphQL errors:', JSON.stringify(data.errors));
+      return res.status(400).send('Billing error: ' + (data.errors[0]?.message || 'GraphQL error'));
+    }
+    if (result?.userErrors?.length > 0) {
+      console.error('Billing userErrors:', JSON.stringify(result.userErrors));
+      return res.status(400).send('Billing error: ' + result.userErrors[0].message);
+    }
+    if (!result?.confirmationUrl) return res.status(500).send('No confirmation URL returned from Shopify');
+    console.log(`Billing created for ${shopDomain} plan=${plan} test=${useTest}`);
+    // IMPORTANT: redirect at TOP LEVEL out of the iframe (handled by /billing/redirect page)
+    res.redirect(`/billing/redirect?url=${encodeURIComponent(result.confirmationUrl)}`);
   } catch (e) {
     console.error('Billing create error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(500).send('Billing error: ' + e.message);
   }
+});
+
+// Breaks out of the Shopify admin iframe to load the billing confirmation page at top level.
+// Redirecting to Shopify's confirmationUrl INSIDE the iframe fails — it must be top-level.
+app.get('/billing/redirect', (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send('Missing url');
+  res.set('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+    <script>
+      // If embedded in Shopify admin iframe, redirect the TOP window; else redirect normally.
+      var target = ${JSON.stringify(url)};
+      if (window.top === window.self) {
+        window.location.href = target;
+      } else {
+        window.top.location.href = target;
+      }
+    </script>
+    <p>Redirecting to secure checkout… If you are not redirected, <a href="${url}" target="_top">click here</a>.</p>
+    </body></html>`);
 });
 
 app.get('/billing/callback', async (req, res) => {
