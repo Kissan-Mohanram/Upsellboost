@@ -315,6 +315,14 @@ app.get('/billing/create', async (req, res) => {
   // Use test charges unless explicitly enabled for live billing.
   // Reviewers must see TEST charges so they can approve without being billed real money.
   const useTest = process.env.BILLING_LIVE === 'true' ? false : true;
+  // Billing requires a proper OAuth (Partner-app) token. The legacy/shop-owned token
+  // cannot create charges ("application is currently owned by a Shop"). If this shop
+  // hasn't installed via OAuth, send them through it first.
+  const oauthToken = await getShopTokenRaw(shopDomain);
+  if (!oauthToken) {
+    console.log(`[billing] No OAuth token for ${shopDomain} — redirecting to install first`);
+    return res.redirect(`/auth?shop=${encodeURIComponent(shopDomain)}`);
+  }
   try {
     const mutation = `
       mutation {
@@ -326,7 +334,7 @@ app.get('/billing/create', async (req, res) => {
           lineItems: [{
             plan: {
               appRecurringPricingDetails: {
-                price: { amount: ${planConfig.amount}, currencyCode: ${planConfig.currency} }
+                price: { amount: "${planConfig.amount}", currencyCode: ${planConfig.currency} }
                 interval: EVERY_30_DAYS
               }
             }
@@ -342,7 +350,8 @@ app.get('/billing/create', async (req, res) => {
     const result = data?.data?.appSubscriptionCreate;
     if (data?.errors) {
       console.error('Billing GraphQL errors:', JSON.stringify(data.errors));
-      return res.status(400).send('Billing error: ' + (data.errors[0]?.message || 'GraphQL error'));
+      const errMsg = data.errors.map(e => e.message || JSON.stringify(e)).join('; ');
+      return res.status(400).send('Billing error: ' + errMsg);
     }
     if (result?.userErrors?.length > 0) {
       console.error('Billing userErrors:', JSON.stringify(result.userErrors));
