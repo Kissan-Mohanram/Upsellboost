@@ -12,14 +12,12 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken'); // ← NEW
 const app = express();
 
-// Parse JSON for all routes, but save raw body for webhook HMAC verification
-app.use((req, res, next) => {
-  if (req.path.startsWith('/webhooks/')) {
-    // Webhook routes handle their own body parsing via express.raw()
-    return next();
+// Parse JSON for all routes, saving raw body for webhook HMAC verification
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
   }
-  express.json()(req, res, next);
-});
+}));
 
 // ── OAuth gate: force install flow ONLY for new stores with no token ──
 // Safe by design: never blocks the legacy/dev store, never loops, and fails OPEN
@@ -344,9 +342,10 @@ app.get('/auth/callback', async (req, res) => {
 
 function verifyWebhookHMAC(req) {
   const hmacHeader = req.headers['x-shopify-hmac-sha256'];
-  if (!hmacHeader || !CLIENT_SECRET) return true;
+  if (!hmacHeader || !CLIENT_SECRET) return false;
   try {
-    const hash = crypto.createHmac('sha256', CLIENT_SECRET).update(req.body).digest('base64');
+    const body = req.rawBody || req.body;
+    const hash = crypto.createHmac('sha256', CLIENT_SECRET).update(body).digest('base64');
     return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hmacHeader));
   } catch(e) { console.error('HMAC verify error:', e.message); return false; }
 }
@@ -497,7 +496,7 @@ app.get('/api/plan', async (req, res) => {
   res.json({ plan, orderLimit: planConfig.orderLimit, rulesLimit: planConfig.rulesLimit });
 });
 
-app.post('/webhooks/app/uninstalled', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhooks/app/uninstalled', async (req, res) => {
   if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: app/uninstalled'); return res.sendStatus(401); }
   res.sendStatus(200);
   try {
@@ -861,11 +860,11 @@ app.get('/api/settings', async (req, res) => {
 // WEBHOOKS (unchanged)
 // ════════════════════════════════════════════════════
 
-app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhooks/orders/create', async (req, res) => {
   if (!verifyWebhookHMAC(req)) { console.warn('HMAC verification failed: orders/create'); return res.sendStatus(401); }
   res.sendStatus(200);
   try {
-    const order = JSON.parse(req.body);
+    const order = req.body;
     const shop = req.headers['x-shopify-shop-domain'] || LEGACY_STORE || 'default';
     const event = { order_id: String(order.id), product_name: order.line_items?.[0]?.title || 'Unknown', accepted: true, revenue: parseFloat(order.total_price || 0), channel: 'shopify_order', date: new Date().toISOString(), shop_domain: shop };
     if (supabase) { await supabase.from('events').insert(event); }
@@ -873,17 +872,17 @@ app.post('/webhooks/orders/create', express.raw({ type: 'application/json' }), a
   } catch (e) { console.error('Webhook error:', e.message); }
 });
 
-app.post('/webhooks/customers/redact', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhooks/customers/redact', async (req, res) => {
   if (!verifyWebhookHMAC(req)) return res.sendStatus(401);
   res.sendStatus(200);
   console.log('GDPR customers/redact — no personal data stored');
 });
 
-app.post('/webhooks/shop/redact', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhooks/shop/redact', async (req, res) => {
   if (!verifyWebhookHMAC(req)) return res.sendStatus(401);
   res.sendStatus(200);
   try {
-    const body = JSON.parse(req.body);
+    const body = req.body;
     const shop = body.shop_domain || req.headers['x-shopify-shop-domain'];
     if (supabase && shop) {
       await supabase.from('shops').delete().eq('shop_domain', shop);
@@ -895,7 +894,7 @@ app.post('/webhooks/shop/redact', express.raw({ type: 'application/json' }), asy
   } catch (e) { console.error('GDPR shop redact error:', e.message); }
 });
 
-app.post('/webhooks/customers/data_request', express.raw({ type: 'application/json' }), async (req, res) => {
+app.post('/webhooks/customers/data_request', async (req, res) => {
   if (!verifyWebhookHMAC(req)) return res.sendStatus(401);
   res.sendStatus(200);
   console.log('GDPR data_request — no personal data stored');
