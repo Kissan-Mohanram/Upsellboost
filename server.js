@@ -948,6 +948,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ── Catch-all POST: verify HMAC for Shopify webhook validation ──
+// Shopify's automated check POSTs to the app root URL with an invalid HMAC
+// and expects HTTP 401. Without this, unmatched POSTs return 404.
+app.post('*', (req, res) => {
+  if (!verifyWebhookHMAC(req)) return res.sendStatus(401);
+  res.sendStatus(200);
+});
+
 // ── START ──
 const PORT = process.env.PORT || 3000;
 initSupabase().then(() => {
