@@ -12,7 +12,14 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken'); // ← NEW
 const app = express();
 
-app.use(express.json());
+// Parse JSON for all routes, but save raw body for webhook HMAC verification
+app.use((req, res, next) => {
+  if (req.path.startsWith('/webhooks/')) {
+    // Webhook routes handle their own body parsing via express.raw()
+    return next();
+  }
+  express.json()(req, res, next);
+});
 
 // ── OAuth gate: force install flow ONLY for new stores with no token ──
 // Safe by design: never blocks the legacy/dev store, never loops, and fails OPEN
