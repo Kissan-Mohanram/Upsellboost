@@ -379,7 +379,7 @@ async function registerWebhooks(shop, token) {
 const PLANS = {
   basic:      { name: 'UpsellBoost Basic',     amount: '9.99',  currency: 'USD', trialDays: 7, orderLimit: 500,   rulesLimit: 5   },
   pro:        { name: 'UpsellBoost Pro',        amount: '24.99', currency: 'USD', trialDays: 7, orderLimit: 2000,  rulesLimit: 999 },
-  enterprise: { name: 'UpsellBoost Enterprise', amount: '59.99', currency: 'USD', trialDays: 7, orderLimit: 99999, rulesLimit: 999 }
+  enterprise: { name: 'UpsellBoost Enterprise', amount: '59.99', currency: 'USD', trialDays: 3, orderLimit: 99999, rulesLimit: 999 }
 };
 
 app.get('/billing/create', async (req, res) => {
