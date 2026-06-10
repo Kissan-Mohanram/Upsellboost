@@ -102,8 +102,13 @@ async function initSupabase() {
 
 // ── SHOP HELPERS ──
 // ── Token refresh for expiring offline tokens (required since April 2026) ──
+// Track failed refreshes to prevent spam (cooldown 5 minutes)
+const _refreshFailed = {};
+
 async function refreshShopToken(shop) {
   if (!shop || !CLIENT_ID || !CLIENT_SECRET) return null;
+  // Cooldown: don't retry if we failed recently
+  if (_refreshFailed[shop] && Date.now() - _refreshFailed[shop] < 5 * 60 * 1000) return null;
   let refresh_token;
   if (supabase) {
     const { data } = await supabase.from('shops').select('refresh_token').eq('shop_domain', shop).single();
@@ -121,9 +126,13 @@ async function refreshShopToken(shop) {
     });
     const raw = await res.text();
     const tokenData = JSON.parse(raw);
-    if (!tokenData.access_token) { console.error('[refresh] No access_token:', raw.slice(0, 200)); return null; }
+    if (!tokenData.access_token) {
+      console.error('[refresh] Failed for', shop, ':', raw.slice(0, 150));
+      _refreshFailed[shop] = Date.now(); // Set cooldown
+      return null;
+    }
+    delete _refreshFailed[shop]; // Clear cooldown on success
     const token_expires_at = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString() : null;
-    // Save refreshed token (and possibly new refresh_token)
     if (supabase) {
       const updateObj = { access_token: tokenData.access_token, token_expires_at };
       if (tokenData.refresh_token) updateObj.refresh_token = tokenData.refresh_token;
