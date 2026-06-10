@@ -61,7 +61,7 @@ app.use((req, res, next) => {
 const CLIENT_ID     = process.env.SHOPIFY_CLIENT_ID || '';
 const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET || '';
 const APP_URL       = process.env.APP_URL || 'https://upsellboost-production.up.railway.app';
-const SCOPES        = 'read_products,read_orders,write_orders,read_inventory';
+const SCOPES        = 'read_products,read_orders,write_orders,read_inventory,write_script_tags,read_script_tags';
 const API_VERSION   = '2024-01';
 const LEGACY_TOKEN  = process.env.SHOPIFY_TOKEN || '';
 const LEGACY_STORE  = process.env.SHOPIFY_STORE || '';
@@ -333,6 +333,7 @@ app.get('/auth/callback', async (req, res) => {
     }
     console.log(`✓ Shop installed: ${shop}`);
     try { await registerWebhooks(shop, access_token); } catch(whErr){ console.error('[oauth-callback] webhook register failed (non-fatal):', whErr.message); }
+    try { await registerScriptTag(shop, access_token); } catch(stErr){ console.error('[oauth-callback] ScriptTag register failed (non-fatal):', stErr.message); }
     res.redirect(`https://${shop}/admin/apps/${CLIENT_ID}`);
   } catch (e) {
     console.error('OAuth callback error:', e.message);
@@ -371,6 +372,53 @@ async function registerWebhooks(shop, token) {
     }
   } catch (e) { console.log('Webhook registration failed:', e.message); }
 }
+
+// ── Register ScriptTag for storefront widget ──
+async function registerScriptTag(shop, token) {
+  try {
+    const scriptUrl = `${APP_URL}/widget.js`;
+    // First check if already registered
+    const listRes = await fetch(`https://${shop}/admin/api/${API_VERSION}/script_tags.json`, {
+      headers: { 'X-Shopify-Access-Token': token }
+    });
+    const listData = await listRes.json();
+    const existing = (listData.script_tags || []).find(s => s.src.includes('widget.js'));
+    if (existing) { console.log(`✓ ScriptTag already registered for ${shop}`); return; }
+    // Register new ScriptTag
+    const res = await fetch(`https://${shop}/admin/api/${API_VERSION}/script_tags.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ script_tag: { event: 'onload', src: scriptUrl, display_scope: 'all' }})
+    });
+    const data = await res.json();
+    if (data.errors) console.log(`ScriptTag error:`, data.errors);
+    else console.log(`✓ ScriptTag registered for ${shop}`);
+  } catch (e) { console.log('ScriptTag registration failed:', e.message); }
+}
+
+// ── CORS middleware for storefront widget API calls ──
+// The widget runs on merchant storefronts (different domain), so it needs CORS
+app.use('/api/offer', function(req, res, next) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+app.use('/api/offer-multi', function(req, res, next) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+app.use('/api/events', function(req, res, next) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 
 // ════════════════════════════════════════════════════
 // PHASE 2 — SHOPIFY BILLING API (unchanged)
@@ -939,6 +987,20 @@ app.get('/health', async (req, res) => {
     rulesCount = r.count || 0; eventsCount = e.count || 0; shopsCount = s.count || 0;
   } else { const data = readData(); rulesCount = (data.rules || []).length; eventsCount = (data.events || []).length; shopsCount = Object.keys(data.shops || {}).length; }
   res.json({ status: 'ok', version: '3.1.0', oauth: !!CLIENT_ID, billing: !!CLIENT_ID, session_tokens: true, app_bridge: true, hmac_verification: !!CLIENT_SECRET, gdpr_webhooks: true, shops: shopsCount, rules: rulesCount, events: eventsCount, supabase: !!supabase, timestamp: new Date().toISOString() });
+});
+
+// ── Manual ScriptTag registration for existing installs ──
+app.get('/api/register-widget', async (req, res) => {
+  const shop = req.query.shop;
+  if (!shop) return res.json({ error: 'Missing shop parameter' });
+  try {
+    const token = await getShopToken(shop);
+    if (!token || token === LEGACY_TOKEN) return res.json({ error: 'No OAuth token for this shop. Reinstall via /auth?shop=' + shop });
+    await registerScriptTag(shop, token);
+    res.json({ success: true, message: 'ScriptTag registered for ' + shop });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
 });
 
 // ── SPA catch-all: serve index.html for any unmatched route ──
