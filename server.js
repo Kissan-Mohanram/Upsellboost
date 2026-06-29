@@ -19,24 +19,41 @@ app.use(express.json({
   }
 }));
 
-// ── OAuth gate: force install flow ONLY for new stores with no token ──
-// Safe by design: never blocks the legacy/dev store, never loops, and fails OPEN
-// (serves the app) if anything goes wrong — so it can never crash the app for users.
+// ── OAuth gate: force install/re-auth for stores with no token or expired tokens ──
+// Safe by design: never blocks the legacy/dev store, never loops, and fails OPEN.
 app.get('/', async (req, res, next) => {
   const shop = req.query.shop;
-  if (!shop) return next();                    // no shop param → just serve app
-  if (shop === LEGACY_STORE) return next();    // our own dev store uses LEGACY_TOKEN → never gate it
-  if (!CLIENT_ID || !CLIENT_SECRET) return next(); // OAuth not configured → don't trap anyone, serve app
-  if (req.query.no_oauth === '1') return next();   // manual escape hatch to bypass the gate
+  if (!shop) return next();
+  if (shop === LEGACY_STORE) return next();
+  if (!CLIENT_ID || !CLIENT_SECRET) return next();
+  if (req.query.no_oauth === '1') return next();
   try {
-    const token = await getShopTokenRaw(shop);
-    if (!token) {
+    // Check if shop has a token at all
+    let shopData;
+    if (supabase) {
+      const { data } = await supabase.from('shops').select('access_token,refresh_token,token_expires_at').eq('shop_domain', shop).single();
+      shopData = data;
+    }
+    if (!shopData || !shopData.access_token) {
       console.log(`[oauth-gate] No token for ${shop} — redirecting to /auth`);
       return res.redirect(`/auth?shop=${encodeURIComponent(shop)}`);
     }
+    // Check if token is expired
+    if (shopData.token_expires_at) {
+      const expiresAt = new Date(shopData.token_expires_at).getTime();
+      if (Date.now() > expiresAt - 2 * 60 * 1000) {
+        // Token expired or expiring in 2 min — try to refresh
+        const newToken = await refreshShopToken(shop);
+        if (!newToken) {
+          // Refresh failed — need fresh OAuth
+          console.log(`[oauth-gate] Token expired and refresh failed for ${shop} — redirecting to /auth`);
+          return res.redirect(`/auth?shop=${encodeURIComponent(shop)}`);
+        }
+      }
+    }
   } catch (e) {
     console.error('[oauth-gate] error (serving app anyway):', e.message);
-    return next(); // fail OPEN — never block the app on an error
+    return next();
   }
   next();
 });
@@ -625,7 +642,12 @@ app.get('/api/products', async (req, res) => {
     }
     const d = await shopifyFetch(shop, '/products.json?limit=50&status=active');
     if (d.errors) {
-      console.error(`[products] Shopify API error for ${shop}:`, d.errors);
+      const errStr = typeof d.errors === 'string' ? d.errors : JSON.stringify(d.errors);
+      console.error(`[products] Shopify API error for ${shop}:`, errStr);
+      // Detect auth failures — tell frontend to re-auth instead of showing samples
+      if (errStr.includes('Invalid API key') || errStr.includes('access token') || errStr.includes('Unauthorized') || errStr.includes('[API]')) {
+        return res.json({ products: [], source: 'auth_error', needs_reauth: true, reauth_url: '/auth?shop=' + encodeURIComponent(shop), error: 'Session expired. Please reconnect your store.' });
+      }
       return res.json({ products: SAMPLE, source: 'sample_api_error', error: d.errors });
     }
     const products = d.products || [];
